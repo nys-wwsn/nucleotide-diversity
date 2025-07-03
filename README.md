@@ -10,7 +10,7 @@ the sum is over all variants at that position.
 
 
 ### Windowed Pi
-$\pi_{w} = \frac{1}{L} \displaystyle \sum{s in window} \pi_s $
+$\pi_{w} = \frac{1}{L} \sum{\pi_s}$
 
 ### Mean Pi
 
