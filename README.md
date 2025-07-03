@@ -1,7 +1,7 @@
 # nucleotide-diversity
 
 ## Pi equation
-$\pi=\( frac{n}{n-1} ) (1 - \sum{f^{2}})$
+$\pi=( \frac{n}{n-1} ) (1 - \sum{f^{2}})$
 
 ### Pi per base
 
