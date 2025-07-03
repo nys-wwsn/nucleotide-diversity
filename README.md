@@ -21,6 +21,8 @@ The genomewide mean pi is the mean of the windowed values.
 
 ## Shannon Equation
 
+I used the shannon equation from this link from statology: [Shannon equation](https://www.statology.org/shannon-diversity-index/)
+
 ### Shannon per base
 
 $H_{s} = \sum{(log(prop) * prop) * -1} $
