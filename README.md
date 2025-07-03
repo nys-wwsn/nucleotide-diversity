@@ -25,11 +25,11 @@ The genomewide mean pi is the mean of the windowed values.
 
 $H_{s} = \sum{(log(prop) * prop) * -1} $
 
-$prop = \frac{frequency of allele}{total alleles observed} $
+$prop = \frac{frequency\of\allele}{total\alleles\observed} $
 
 
 ### Windowed Shannon
-$\H_{w} = \frac{1}{L} \sum{\H_{s}}$
+$H_{w} = \frac{1}{L} \sum{H_{s}}$
 
 
 ### mean Shannon
