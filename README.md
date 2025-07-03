@@ -1,11 +1,16 @@
 # nucleotide-diversity
 
 ## Pi equation
-$\pi=( \frac{n}{n-1} ) (1 - \sum{f^{2}})$
 
 ### Pi per base
+$\pi_{s} =( \frac{n}{n-1} ) (1 - \sum{f^{2}})$
+
+Where $n$ is the total number of reads spanning that position, $f$ is the frequency of a variant, and
+the sum is over all variants at that position.
+
 
 ### Windowed Pi
+$\pi_{w} = \frac{1}{L} \displaystyle \sum{s in window} \pi_s $
 
 ### Mean Pi
 
