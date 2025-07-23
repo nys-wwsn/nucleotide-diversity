@@ -7,7 +7,7 @@
 # Script author: Dustin T. Hill
 
 # Created 2025-04-25
-# Last updated 2025-06-30
+# Last updated 2025-07-18
 
 # DATA PREP SCRIPT
 # Prepare genome sequence data, case data, hospitalization data, quantification
@@ -35,7 +35,7 @@ library(dplyr)
 # --------------------------------------
 
 # genomewide
-genome <- read.csv("data/genomewide_pi.csv", stringsAsFactors = FALSE)
+genome <- read.csv("data/genomwide_pi_2025-06-04.csv", stringsAsFactors = FALSE)
 
 # edit date filed
 genome$date <- ymd(genome$date)
@@ -53,7 +53,7 @@ genome_weekly <- genome %>%
 # spike
 
 # spike data
-spike <- read.csv("data/spike_pi.csv")
+spike <- read.csv("data/spike_pi_2025-06-04.csv")
 
 # edit date filed
 spike$date <- ymd(spike$date)
@@ -70,7 +70,7 @@ spike_weekly <- spike %>%
 diversity_df <- left_join(genome_weekly, spike_weekly, by = c("cdc_id", "week"))
 
 # s1 ntd
-ntd <- read.csv("data/s1_ntd_pi.csv")
+ntd <- read.csv("data/s1_ntd_pi_2025-06-04.csv")
 
 # edit date filed
 ntd$date <- ymd(ntd$date)
@@ -88,7 +88,7 @@ ntd_weekly <- ntd %>%
 diversity_df <- left_join(diversity_df, ntd_weekly, by = c("cdc_id", "week"))
 
 # s1 rbd
-rbd <- read.csv("data/s1_rbd_pi.csv")
+rbd <- read.csv("data/s1_rbd_pi_2025-06-04.csv")
 
 # edit date filed
 rbd$date <- ymd(rbd$date)
@@ -106,7 +106,7 @@ rbd_weekly <- rbd %>%
 diversity_df <- left_join(diversity_df, rbd_weekly, by = c("cdc_id", "week"))
 
 # orf
-orf <- read.csv("data/orf_nsp5_6_pi.csv")
+orf <- read.csv("data/orf_nsp5_6_pi_2025-06-04.csv")
 
 # edit date filed
 orf$date <- ymd(orf$date)
@@ -124,7 +124,7 @@ orf_weekly <- orf %>%
 diversity_df <- left_join(diversity_df, orf_weekly, by = c("cdc_id", "week"))
 
 # cov mt 2
-cov_mt_2 <- read.csv("data/cov_mt_2_pi.csv")
+cov_mt_2 <- read.csv("data/cov_mt_2_2025-06-04.csv")
 
 # edit date filed
 cov_mt_2$date <- ymd(cov_mt_2$date)
@@ -141,10 +141,15 @@ cov_mt_2_weekly <- cov_mt_2 %>%
 # add to main file
 diversity_df <- left_join(diversity_df, cov_mt_2_weekly, 
                           by = c("cdc_id", "week")
-                          )
+)
 
 diversity_df <- diversity_df %>%
   rename(facility_id = cdc_id)
+
+# relabel lewiston village to lewiston master SD
+diversity_df$facility_id[diversity_df$facility_id == "NY063024481A"] <- 
+  "NY063027766A"
+
 
 # -----------------------------------------------------------------------------
 
@@ -184,7 +189,7 @@ conc_mean <- quant.data %>%
                              unit = "weeks", 
                              week_start = 7), 
            facility_id
-           ) %>%
+  ) %>%
   summarize(mean_sars2_conc = mean(copies, na.rm = TRUE),
             conc_samples = n()
   ) %>%
@@ -202,22 +207,22 @@ load(file = "data/lineage name files.R")
 # count lineages per week
 var_unique_sewer <- var.data %>%
   group_by(facility_id,
-    week = lubridate::floor_date(date, 
-                                 unit = 'weeks', 
-                                 week_start = 7),
-    region,
-    county
+           week = lubridate::floor_date(date, 
+                                        unit = 'weeks', 
+                                        week_start = 7),
+           region,
+           county
   ) %>%
   mutate(n_variants_no_thresh = length(unique(lineage))
   ) %>%
   ungroup() %>%
   dplyr::filter(variant_pct > 0.05)%>%
   group_by(facility_id,
-    week = lubridate::floor_date(date, 
-                                 unit = 'weeks', 
-                                 week_start = 7),
-    region,
-    county
+           week = lubridate::floor_date(date, 
+                                        unit = 'weeks', 
+                                        week_start = 7),
+           region,
+           county
   ) %>%
   mutate(n_variants_5 = length(unique(lineage))
   ) %>%
@@ -246,11 +251,11 @@ saveRDS(sample_count, "data/sample_count.rds")
 # count lineages per week by county
 var_unique_county <- var.data %>%
   group_by(
-           week = lubridate::floor_date(date, 
-                                        unit = 'weeks', 
-                                        week_start = 7),
-           region,
-           county
+    week = lubridate::floor_date(date, 
+                                 unit = 'weeks', 
+                                 week_start = 7),
+    region,
+    county
   ) %>%
   mutate(n_variants_no_thresh = length(unique(lineage))
   ) %>%
@@ -300,7 +305,7 @@ nyc <- c("New York", "Bronx", "Queens", "Kings", "Richmond")
 
 var_unique_state <- var.data %>%
   mutate(group = ifelse(county %in% nyc, "NYC", "State")
-         ) %>%
+  ) %>%
   group_by(
     week = lubridate::floor_date(date, 
                                  unit = 'weeks', 
@@ -368,14 +373,13 @@ hosp_county_weekly <- hosp_county %>%
                 county_pop, 
                 sum_Total.New.Admissions.Reported, 
                 sum_Total.New.Admissions.Reported_100
-                ) %>%
+  ) %>%
   rename(hospitalizations = sum_Total.New.Admissions.Reported,
          hosp_incidence = sum_Total.New.Admissions.Reported_100)
 
 # filter for the dates we have variant data for plus three extra weeks for lags
 hosp_county_weekly <- hosp_county_weekly %>%
   filter(week >= min(diversity_df$week) & week <= max(diversity_df$week)+weeks(3))
-
 
 # -----------------------------------------------------------------------------
 
@@ -423,20 +427,22 @@ cases_county_weekly$case_incidence <- cases_county_weekly$cases *
 cases_county_weekly <- cases_county_weekly %>%
   filter(week >= min(diversity_df$week) & week <= max(diversity_df$week)+weeks(3))
 
-# st lawrence county fix
-
-
 # -----------------------------------------------------------------------------
 
 # --------------------------------------
 # SEWERSHED LEVEL COMBINED DATA FILE
 # --------------------------------------
 
+# merge concentration
 dat_sewershed <- full_join(diversity_df, 
                            conc_mean, 
                            by = c("facility_id", "week")) %>%
   filter(week >= (as.Date("2023-01-01"))) %>%
   filter(week <= "2025-04-21")
+
+# merge variant counts
+dat_sewershed <- left_join(dat_sewershed, var_unique_sewer, 
+                           by = c("week", "facility_id"))
 
 # if missing conc, drop the data
 dat_sewershed <- dat_sewershed %>%
@@ -461,57 +467,65 @@ dat_sewershed <- dat_sewershed %>%
   ungroup() %>%
   filter(week <= week_max)
 
-# linear interpolate missing pi/h values
+# linear interpolate missing pi/h/variant count values
 dat_sewershed <- dat_sewershed %>%
   group_by(facility_id) %>%
   dplyr::arrange(week)%>%
   dplyr::mutate(# missing pi values
-                genomewide_pi_approx= na.approx(genomewide_pi, 
-                                                maxgap = 3, 
-                                                na.rm = FALSE),
-                spike_pi_approx= na.approx(spike_pi, 
-                                           maxgap = 3, 
-                                           na.rm = FALSE),
-                orf_pi_approx= na.approx(orf_pi, 
-                                         maxgap = 3, na.rm = FALSE),
-                ntd_pi_approx= na.approx(ntd_pi, maxgap = 3, 
-                                         na.rm = FALSE),
-                rbd_pi_approx= na.approx(rbd_pi, 
-                                         maxgap = 3, 
-                                         na.rm = FALSE),
-                cov_mt_2_pi_approx = na.approx(cov_mt_2_pi, 
-                                               maxgap = 3, 
-                                               na.rm = FALSE),
-                # missing concentration
-                mean_sars2_conc_approx = na.approx(mean_sars2_conc, 
-                                                   maxgap = 3, 
-                                                   na.rm = FALSE),
-                # missing h values
-                genomewide_h_approx= na.approx(genomewide_h, 
-                                                maxgap = 3, 
-                                                na.rm = FALSE),
-                spike_h_approx= na.approx(spike_h, 
-                                           maxgap = 3, 
-                                           na.rm = FALSE),
-                orf_h_approx= na.approx(orf_h, 
-                                         maxgap = 3, na.rm = FALSE),
-                ntd_h_approx= na.approx(ntd_h, maxgap = 3, 
-                                         na.rm = FALSE),
-                rbd_h_approx= na.approx(rbd_h, 
-                                         maxgap = 3, 
-                                         na.rm = FALSE),
-                cov_mt_2_h_approx = na.approx(cov_mt_2_h, 
-                                               maxgap = 3, 
-                                               na.rm = FALSE),
-                
-                # missing depth
-                depth_approx = na.approx(depth,
-                                         maxgap = 3,
-                                         na.rm = FALSE),
-                depth_ntd_approx = na.approx(ntd_depth,
-                                             maxgap = 3,
-                                             na.rm = FALSE)
-                
+    genomewide_pi_approx= na.approx(genomewide_pi, 
+                                    maxgap = 3, 
+                                    na.rm = FALSE),
+    spike_pi_approx= na.approx(spike_pi, 
+                               maxgap = 3, 
+                               na.rm = FALSE),
+    orf_pi_approx= na.approx(orf_pi, 
+                             maxgap = 3, na.rm = FALSE),
+    ntd_pi_approx= na.approx(ntd_pi, maxgap = 3, 
+                             na.rm = FALSE),
+    rbd_pi_approx= na.approx(rbd_pi, 
+                             maxgap = 3, 
+                             na.rm = FALSE),
+    cov_mt_2_pi_approx = na.approx(cov_mt_2_pi, 
+                                   maxgap = 3, 
+                                   na.rm = FALSE),
+    # missing concentration
+    mean_sars2_conc_approx = na.approx(mean_sars2_conc, 
+                                       maxgap = 3, 
+                                       na.rm = FALSE),
+    # missing h values
+    genomewide_h_approx= na.approx(genomewide_h, 
+                                   maxgap = 3, 
+                                   na.rm = FALSE),
+    spike_h_approx= na.approx(spike_h, 
+                              maxgap = 3, 
+                              na.rm = FALSE),
+    orf_h_approx= na.approx(orf_h, 
+                            maxgap = 3, na.rm = FALSE),
+    ntd_h_approx= na.approx(ntd_h, maxgap = 3, 
+                            na.rm = FALSE),
+    rbd_h_approx= na.approx(rbd_h, 
+                            maxgap = 3, 
+                            na.rm = FALSE),
+    cov_mt_2_h_approx = na.approx(cov_mt_2_h, 
+                                  maxgap = 3, 
+                                  na.rm = FALSE),
+    
+    # missing depth
+    depth_approx = na.approx(depth,
+                             maxgap = 3,
+                             na.rm = FALSE),
+    depth_ntd_approx = na.approx(ntd_depth,
+                                 maxgap = 3,
+                                 na.rm = FALSE),
+    
+    # missing variant counts
+    n_variants_no_thresh_approx = na.approx(n_variants_no_thresh, 
+                                            maxgap = 3, 
+                                            na.rm = FALSE),
+    n_variants_5_approx = na.approx(n_variants_5, 
+                                    maxgap = 3, 
+                                    na.rm = FALSE)
+    
   )%>%
   dplyr::ungroup()
 
@@ -562,34 +576,34 @@ dat_sewershed <- dat_sewershed %>%
                                    na.rm = TRUE),
     # h rolling average
     genomewide_h_ma3 = rollmean(genomewide_h_approx, 
-                                 3, 
-                                 align = "right", 
-                                 na.pad = TRUE, 
-                                 na.rm = TRUE),
+                                3, 
+                                align = "right", 
+                                na.pad = TRUE, 
+                                na.rm = TRUE),
     spike_h_ma3 = rollmean(spike_h_approx, 
-                            3, 
-                            align = "right", 
-                            na.pad = TRUE, 
-                            na.rm = TRUE),
+                           3, 
+                           align = "right", 
+                           na.pad = TRUE, 
+                           na.rm = TRUE),
     orf_h_ma3 = rollmean(orf_h_approx, 3, 
-                          align = "right", 
-                          na.pad = TRUE, 
-                          na.rm = TRUE),
+                         align = "right", 
+                         na.pad = TRUE, 
+                         na.rm = TRUE),
     ntd_h_ma3 = rollmean(ntd_h_approx, 
-                          3, 
-                          align = "right", 
-                          na.pad = TRUE, 
-                          na.rm = TRUE),
+                         3, 
+                         align = "right", 
+                         na.pad = TRUE, 
+                         na.rm = TRUE),
     rbd_h_ma3 = rollmean(rbd_h_approx, 
-                          3, 
-                          align = "right", 
-                          na.pad = TRUE, 
-                          na.rm = TRUE),
+                         3, 
+                         align = "right", 
+                         na.pad = TRUE, 
+                         na.rm = TRUE),
     cov_mt_2_h_ma3 = rollmean(cov_mt_2_h_approx, 
-                               3, 
-                               align = "right", 
-                               na.pad = TRUE, 
-                               na.rm = TRUE),
+                              3, 
+                              align = "right", 
+                              na.pad = TRUE, 
+                              na.rm = TRUE),
     
     # rolling avg depth
     depth_ma3 = rollmean(depth_approx,
@@ -601,15 +615,23 @@ dat_sewershed <- dat_sewershed %>%
                              3,
                              align = "right",
                              na.pad = TRUE,
-                             na.rm = TRUE)
+                             na.rm = TRUE),
+    
+    # rolling average variant counts
+    n_variants_no_thresh_3w = rollmean(n_variants_no_thresh_approx, 
+                                       3, 
+                                       align = "right", 
+                                       na.pad = TRUE, 
+                                       na.rm = TRUE),
+    n_variants_5_3w = rollmean(n_variants_5_approx, 
+                               3, 
+                               align = "right", 
+                               na.pad = TRUE, 
+                               na.rm = TRUE)
     
     
   )%>%
   dplyr::ungroup()
-
-# add variant counts
-dat_sewershed <- left_join(dat_sewershed, var_unique_sewer, 
-                           by = c("week", "facility_id"))
 
 # remove na sewersheds
 dat_sewershed <- dat_sewershed %>%
@@ -624,6 +646,7 @@ dups <- dat_sewershed %>%
 # COUNTY LEVEL COMBINED DATA FILE
 # --------------------------------------
 
+# county metadata that we need to merge
 meta_c <- meta %>%
   select(facility_id, county, population_served)
 
@@ -658,23 +681,23 @@ dat_county <- dat_sewershed %>%
                                               na.rm = TRUE),
     # h values interpolate
     genomewide_h_county_3w = weighted.mean(x = genomewide_h_ma3, 
-                                            w = population_served, 
-                                            na.rm = TRUE),
+                                           w = population_served, 
+                                           na.rm = TRUE),
     spike_h_county_3w = weighted.mean(x = spike_h_ma3, 
-                                       w = population_served, 
-                                       na.rm = TRUE),
+                                      w = population_served, 
+                                      na.rm = TRUE),
     orf_h_county_3w = weighted.mean(x = orf_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     ntd_h_county_3w = weighted.mean(x = ntd_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     rbd_h_county_3w = weighted.mean(x = rbd_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     cov_mt_2_h_county_3w = weighted.mean(x = cov_mt_2_h_ma3, 
-                                          w = population_served, 
-                                          na.rm = TRUE),
+                                         w = population_served, 
+                                         na.rm = TRUE),
     
     # depth
     depth_county_3w = weighted.mean(x = depth_ma3,
@@ -683,7 +706,13 @@ dat_county <- dat_sewershed %>%
     
     depth_ntd_county_3w = weighted.mean(x = depth_ntd_ma3,
                                         w = population_served,
-                                        na.rm = TRUE)
+                                        na.rm = TRUE),
+    
+    # rolling average sewershed variant counts
+    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
+                                        na.rm = TRUE),
+    n_variants_5_3w_mean = mean(n_variants_5_3w, 
+                                na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -709,8 +738,40 @@ dat_county <- dat_county %>%
   select(-county_pop.x) %>%
   rename(county_pop = county_pop.y)
 
-# add variant counts
+# merge variant counts for the county
+# (sum, which is n, v. sewershed mean calculated above)
 dat_county <- left_join(dat_county, var_unique_county, by = c("week", "county"))
+
+# create second variant count estimate
+# rolling mean of the county sum of unique variants from all sites in the 
+# county
+dat_county <- dat_county %>%
+  arrange(week) %>%
+  group_by(county)%>%
+  mutate(
+    
+    # interpolate first
+    n_variants_no_thresh_approx = na.approx(n_variants_no_thresh, 
+                                            maxgap = 3, 
+                                            na.rm = FALSE),
+    n_variants_5_approx = na.approx(n_variants_5, 
+                                    maxgap = 3, 
+                                    na.rm = FALSE)
+  ) %>%
+  mutate(
+    # rolling average of the county interpolated sums
+    # rolling average variant counts
+    n_variants_no_thresh_3w_sum = rollmean(n_variants_no_thresh_approx, 
+                                           3, 
+                                           align = "right", 
+                                           na.pad = TRUE, 
+                                           na.rm = TRUE),
+    n_variants_5_3w_sum = rollmean(n_variants_5_approx, 
+                                   3, 
+                                   align = "right", 
+                                   na.pad = TRUE, 
+                                   na.rm = TRUE)
+  )
 
 # check for dups
 dups <- dat_county %>%
@@ -755,30 +816,36 @@ dat_region <- dat_sewershed %>%
                                               na.rm = TRUE),
     # regional h values
     genomewide_h_region_3w = weighted.mean(x = genomewide_h_ma3, 
-                                            w = population_served, 
-                                            na.rm = TRUE),
+                                           w = population_served, 
+                                           na.rm = TRUE),
     spike_h_region_3w = weighted.mean(x = spike_h_ma3, 
-                                       w = population_served, 
-                                       na.rm = TRUE),
+                                      w = population_served, 
+                                      na.rm = TRUE),
     orf_h_region_3w = weighted.mean(x = orf_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     ntd_h_region_3w = weighted.mean(x = ntd_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     rbd_h_region_3w = weighted.mean(x = rbd_h_ma3, 
-                                     w = population_served, 
-                                     na.rm = TRUE),
+                                    w = population_served, 
+                                    na.rm = TRUE),
     cov_mt_2_h_region_3w = weighted.mean(x = cov_mt_2_h_ma3, 
-                                          w = population_served, 
-                                          na.rm = TRUE),
+                                         w = population_served, 
+                                         na.rm = TRUE),
     # depth
     depth_region_3w = weighted.mean(x = depth_ma3,
                                     w = population_served,
                                     na.rm = TRUE),
     depth_ntd_region_3w = weighted.mean(x = depth_ntd_ma3,
                                         w = population_served,
-                                        na.rm = TRUE)
+                                        na.rm = TRUE),
+    
+    # rolling average sewershed variant counts
+    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
+                                        na.rm = TRUE),
+    n_variants_5_3w_mean = mean(n_variants_5_3w, 
+                                na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -801,18 +868,21 @@ clinical_region <- clinical_weekly %>%
   ) %>%
   ungroup()
 
-# add regional incidence
+# Add regional incidence
+# Need population values to estimate per 100k incidence
 per100 <- county_region %>%
   select(region, region_pop) %>%
   distinct()
 per100$region[per100$region == "Capital Region"] <- "Capital"
 
+# merge population to regional clinical data and estimate incidence
 clinical_region <- left_join(clinical_region, per100, by = c("region"))
 clinical_region$case_incidence <- clinical_region$cases * 
   (100000/clinical_region$region_pop)
 clinical_region$hosp_incidence <- clinical_region$hospitalizations * 
   (100000/clinical_region$region_pop)
 
+# merge regional clinical data to the main regional object
 dat_region <- left_join(dat_region, clinical_region, by = c("week", "region"))
 
 # replace na hosp with 0
@@ -820,13 +890,44 @@ dat_region$hospitalizations <- ifelse(is.na(dat_region$hospitalizations),
                                       0, 
                                       dat_region$hospitalizations)
 dat_region$hosp_incidence<- ifelse(is.na(dat_region$hosp_incidence), 
-                                    0, 
-                                    dat_region$hospitalizations)
+                                   0, 
+                                   dat_region$hospitalizations)
 
 # merge variant count
 dat_region <- left_join(dat_region, var_unique_region, by = c("week", "region"))
 dat_region <- dat_region %>%
   filter(!is.na(region))
+
+# create second variant count estimate
+# rolling mean of the regional sum of unique variants from all sites in the 
+# region
+dat_region <- dat_region %>%
+  arrange(week) %>%
+  group_by(region)%>%
+  mutate(
+    
+    # interpolate first
+    n_variants_no_thresh_approx = na.approx(n_variants_no_thresh, 
+                                            maxgap = 3, 
+                                            na.rm = FALSE),
+    n_variants_5_approx = na.approx(n_variants_5, 
+                                    maxgap = 3, 
+                                    na.rm = FALSE)
+  ) %>%
+  mutate(
+    # rolling average of the county interpolated sums
+    # rolling average variant counts
+    n_variants_no_thresh_3w_sum = rollmean(n_variants_no_thresh_approx, 
+                                           3, 
+                                           align = "right", 
+                                           na.pad = TRUE, 
+                                           na.rm = TRUE),
+    n_variants_5_3w_sum = rollmean(n_variants_5_approx, 
+                                   3, 
+                                   align = "right", 
+                                   na.pad = TRUE, 
+                                   na.rm = TRUE)
+  )
 
 # check for dups
 dups <- dat_region %>%
@@ -842,7 +943,7 @@ nyc <- c("New York", "Bronx", "Queens", "Kings", "Richmond")
 meta_s <- meta %>%
   select(facility_id, population_served)
 dat_state <- left_join(dat_sewershed, meta_s, 
-                           by = c("facility_id"))
+                       by = c("facility_id"))
 dat_state$group <- ifelse(dat_state$county %in% nyc, "NYC", "State")
 
 # statewide average
@@ -875,30 +976,36 @@ dat_state <- dat_state %>%
                                              na.rm = TRUE),
     # statewide h values
     genomewide_h_state_3w = weighted.mean(x = genomewide_h_ma3, 
-                                           w = population_served, 
-                                           na.rm = TRUE),
+                                          w = population_served, 
+                                          na.rm = TRUE),
     spike_h_state_3w = weighted.mean(x = spike_h_ma3, 
-                                      w = population_served, 
-                                      na.rm = TRUE),
+                                     w = population_served, 
+                                     na.rm = TRUE),
     orf_h_state_3w = weighted.mean(x = orf_h_ma3, 
-                                    w = population_served, 
-                                    na.rm = TRUE),
+                                   w = population_served, 
+                                   na.rm = TRUE),
     ntd_h_state_3w = weighted.mean(x = ntd_h_ma3, 
-                                    w = population_served, 
-                                    na.rm = TRUE),
+                                   w = population_served, 
+                                   na.rm = TRUE),
     rbd_h_state_3w = weighted.mean(x = rbd_h_ma3, 
-                                    w = population_served, 
-                                    na.rm = TRUE),
+                                   w = population_served, 
+                                   na.rm = TRUE),
     cov_mt_2_h_state_3w = weighted.mean(x = cov_mt_2_h_ma3, 
-                                         w = population_served, 
-                                         na.rm = TRUE),
+                                        w = population_served, 
+                                        na.rm = TRUE),
     # depth
     depth_state_3w = weighted.mean(x = depth_ma3,
                                    w = population_served,
                                    na.rm = TRUE),
     depth_ntd_state_3w = weighted.mean(x = depth_ntd_ma3,
                                        w = population_served,
-                                       na.rm = TRUE)
+                                       na.rm = TRUE),
+    
+    # rolling average sewershed variant counts
+    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
+                                        na.rm = TRUE),
+    n_variants_5_3w_mean = mean(n_variants_5_3w, 
+                                na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -925,6 +1032,26 @@ dat_state$case_incidence <- dat_state$cases * (100000 / 19870000)
 
 # add variant count
 dat_state <- left_join(dat_state, var_unique_state, by = c("week", "group"))
+
+# create second variant count estimate
+# rolling mean of the statewide sum of unique variants from all sites in the 
+# state
+dat_state <- dat_state %>%
+  ungroup() %>%
+  arrange(week) %>%
+  mutate(
+    # rolling average variant counts
+    n_variants_no_thresh_3w_sum = rollmean(n_variants_no_thresh, 
+                                           3, 
+                                           align = "right", 
+                                           na.pad = TRUE, 
+                                           na.rm = TRUE),
+    n_variants_5_3w_sum = rollmean(n_variants_5, 
+                                   3, 
+                                   align = "right", 
+                                   na.pad = TRUE, 
+                                   na.rm = TRUE)
+  )
 
 # check for dups
 dups <- dat_state %>%
