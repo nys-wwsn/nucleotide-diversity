@@ -14,6 +14,10 @@
 # file from Freyja represents one wastewater sample and the file name includes
 # the sample date and location ID. 
 
+# Docstring R packages was utilized to provide help results for R functions 
+# created in this script. After loading docstring with library(docstring),
+# users can query the help window wit ?function_name.
+
 # Packages
 # install.packages("dplyr")
 # install.packages("readr")
@@ -22,6 +26,9 @@
 # install.packages("doParallel")
 # install.packages("stringr")
 # install.packages("purrr")
+# install.packages("docstring)
+
+library(docstring)
 
 # Functions
 
@@ -31,6 +38,40 @@
 
 # calculate diversity functions -> pi and shannon
 calculate_diversity_function <- function(input, pass_option){
+  
+  # docstring information
+  #' Calculate nucleotide and Shannon diversity
+  #' 
+  #' @description This function calculates nucleotide diversity for wastewater
+  #' samples and Shannon's H. 
+  #' 
+  #' @param input dataframe. Freyja variants file from the Freyja variant
+  #' pipeline.
+  #' @param pass_option character string. Whether to include all records or only
+  #' Freyja pass records. Options are "all" or "pass only".
+  #' 
+  #' @details Nucleotide diversity is calculated using the following equation: 
+  #' \deqn{\pi_{s} =( \frac{n}{n-1} ) (1 - \sum{f^{2}})}
+  #' Where \eqn{n} is the total number of reads spanning that position, \eqn{f}
+  #'  is the frequency of a variant, and the sum is over all variants at that 
+  #'  position.
+  #' 
+  #' Shannon's H is calculated in two parts. The proportion of each base/allele
+  #' observed is calculated using the following equation:
+  #' \deqn{H_{s} = \sum{(log(prop) * prop) * -1}}
+  #' 
+  #' Shannon's H full equation is:
+  #' \deqn{$prop = \frac{\text{frequency of allele}}{\text{total alleles observed}} }
+  #' 
+  #' @usage calculate_diversity_function(input, pass_option)
+  #' @return Dataframe with nucleotide diversity, Shannon's H, depth of read
+  #' for the one sample.
+
+  #' @note This function is wrapped inside the 
+  #' "parallel_diversity_per_base_function".
+  #' @examples
+  #' 
+  
   library(dplyr)
   library(readr)
   
@@ -108,6 +149,42 @@ windowed_diversity_function <- function(sample_results,
                                         window_size, 
                                         window_step){
   
+  # docstring information
+  #' Calculate windowed Pi and Shannon values across groups of base pairs
+  #' 
+  #' @description This function uses the Pi per base and Shannon per base data
+  #' output from the `calculate_diversity_function` to estimate a windowed
+  #' value for each with sliding windows that are adjustable.
+  #' 
+  #' @param sample_results dataframe. Pi and Shannon per base output from
+  #' `calculate_diversity_function`.
+  #' @param genome_size integer. Length of the genome being analyzed. For 
+  #' SARS-CoV-2, we use 30,000 base pairs.
+  #' @param window_size numeric. Length of the window size to use. For example,
+  #' our study uses 1000 bp windows.
+  #' @param window_step numeric. Length of the step between window calculations
+  #' for the function to slide over. For example, a 1000 bp window with 100 bp
+  #' step would mean that a windowed Pi is calculated for every 1000 bps moving 
+  #' ahead 100 bps for each calculation
+  #' 
+  #' @details Windowed Pi is calculated using the following equation:
+  #' 
+  #'\deqn{\pi_{w} = \frac{1}{L} \sum{\pi_s}$}
+  #'
+  #'Where \eqn{L} is the window size in base pairs. Positions with no variation in 
+  #'the sample are considered to have \eqn{\pi_s} = 0. 
+  #' 
+  #' Windowed Shannon's H is calculated using a similar equation:
+  #' \deqn{H_{w} = \frac{1}{L} \sum{H_{s}}}
+  #' 
+  #' @return Dataframe with windowed nucleotide diversity, windowed Shannon's H, 
+  #' windowed mean depth of read for the one sample.
+  
+  #' @note This function is wrapped inside the 
+  #' `parallel_mean_diversity_function`.
+  #' @examples
+  #' 
+  
   library(dplyr)
   library(readr)
   library(tidyr)
@@ -161,7 +238,30 @@ parallel_diversity_per_base_function <- function(data_dir,
                                                  save_path,
                                                  pass_option){
   
-  # wrap in a parallel for loop
+  # docstring information
+  #' Calculate diversity measures per base in parallel
+  #' 
+  #' @description Estimate Pi and Shannon per base in parallel for multiple 
+  #' wastewater genetic sequencing samples.
+  #' 
+  #' @param data_dir file path. Directory path for where the genetic data
+  #' are saved.
+  #' @param save_path file path. Directory path to save the output.
+  #' @param pass_option character. Options are "all" or "pass only". Indicates
+  #' if the Pi per base / shannon per base should use all records or only those
+  #' that pass Freyja QC.
+  #' 
+  #' @details This function uses the `calculate_diversity_function` 
+  #' to estimate Pi and Shannon per base in parallel for multiple wastewater
+  #' genetic sequencing data files. The function is designed to query each file
+  #' separately, where each file is a sample.
+  #' 
+  #' @return Tab separated file (TSV) for each sample.
+  #' @examples
+  #' parallel_diversity_per_base_function(data_dir = "variants/",
+  #' save_path = "data/pi/",
+  #' pass_option = "pass only")
+  
   library(foreach)
   library(doParallel)
   
@@ -308,8 +408,26 @@ parallel_diversity_per_base_function <- function(data_dir,
 parallel_windowed_diversity_function <- function(data_dir,
                                                  save_path){
   
-  # parallel
-  # wrap in a parallel for loop
+  # docstring information
+  #' Calculate windowed diversity in parallel
+  #' 
+  #' @description Estimate mean Pi and mean Shannon per window in parallel for 
+  #' multiple wastewater genetic sequencing samples.
+  #' 
+  #' @param data_dir file path. Directory path for where the genetic data
+  #' are saved.
+  #' @param save_path file path. Directory path to save the output.
+  #' 
+  #' @details This function uses the `windowed_diversity_function` 
+  #' to estimate windowed Pi and windowed Shannon in parallel for multiple 
+  #' wastewater genetic sequencing data files. The function is designed to query 
+  #' each file separately, where each file is a sample.
+  #' 
+  #' @return Tab separated file (TSV) for each sample.
+  #' @examples
+  #' parallel_windowed_diversity_function(data_dir = "data/pi/",
+  #' save_path = "data/windowed_pi/")
+  #' 
   library(foreach)
   library(doParallel)
   
@@ -438,6 +556,45 @@ parallel_mean_diversity_function <- function(data_dir_1,
                                              bp_end,
                                              final_file_path){
   
+  # docstring information
+  #' Calculate mean diversity in parallel
+  #' 
+  #' @description Estimate mean Pi and mean Shannon per window in parallel for
+  #' specific genome regions.
+  #' 
+  #' @param data_dir_1 file path. Directory path for where the genetic data
+  #' are saved.
+  #' @param save_path file path. Directory path to save the output.
+  #' @param data_dir_2 file path. Directory path for the processed genetic data
+  #' for the region of interest.
+  #' @param bp_start numeric. Base pair start position for the genome region of 
+  #' interest.
+  #' @param bp_end numeric. Base pair end position for the genome region of 
+  #' interest.
+  #' @param final_file_path. Direcotry path and file name for the saved output.
+  #' 
+  #' @details This function uses the results of `windowed_diversity_function` 
+  #' to estimate mean Pi values and mean Shannon H values per sample for 
+  #' specific genome regions. The function will process the individual variant
+  #' data files in parallel and output one file with one row per sample.
+  #' 
+  #' @return Comma separated file (CSV).
+  #' @examples
+  #' # Genomewide Mean pi per sample
+  #' parallel_mean_diversity_function(data_dir_1 = "data/windowed_pi/",
+  #'                                  save_path = "data/genomewide_pi/",
+  #'                                  data_dir_2 = "data/genomewide_pi/",
+  #'                                  bp_start = 1,
+  #'                                  bp_end = 30000,
+  #'                                  final_file_path = 
+  #'                                    paste(
+  #'                                      "data/genomwide_pi_",
+  #'                                      Sys.Date(),
+  #'                                      ".csv",
+  #'                                      sep = "")
+  #' )
+  #' 
+  #' 
   # parallel
   library(foreach)
   library(doParallel)
