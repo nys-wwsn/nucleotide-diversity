@@ -74,7 +74,6 @@ calculate_diversity_function <- function(input, pass_option){
     )
   
   # shannon index
-  
   h <- function(prop){
     h_value <- sum((log(prop) * prop ) * -1)
   }
@@ -94,14 +93,18 @@ calculate_diversity_function <- function(input, pass_option){
     left_join(depths, by = "POS") %>%
     rename(depth = sum_k)
   
+  # inpute 0 for NA shannons
+  result$h <- ifelse(is.na(result$h),
+                     0,
+                     result$h)
+  
   # save output
   return(result)
 }
 
-# windowed pi function
+# windowed diversity function
 windowed_diversity_function <- function(sample_results, 
                                         genome_size, 
-                                        num_cov_bins, 
                                         window_size, 
                                         window_step){
   
@@ -110,7 +113,6 @@ windowed_diversity_function <- function(sample_results,
   library(tidyr)
   
   genome_size <- genome_size
-  num_cov_bins <- num_cov_bins
   window_size <- window_size
   window_step <- window_step
   
@@ -145,15 +147,6 @@ windowed_diversity_function <- function(sample_results,
   
   result <- as.data.frame(do.call(rbind, records))
   colnames(result) <- c("start", "center", "end", "avg_pi","avg_h", "avg_depth")
-  
-  result <- result %>%
-    mutate(cov_bin = cut(avg_depth, breaks = num_cov_bins))
-  
-  # Normalize pi within each coverage bin
-  result <- result %>%
-    group_by(cov_bin) %>%
-    mutate(avg_pi_z = (avg_pi - mean(avg_pi, na.rm = TRUE)) / (sd(avg_pi, na.rm = TRUE) + 1e-9)) %>%
-    replace_na(list(avg_pi_z = 0.0))
   
   # save down the new file
   return(result)
@@ -358,7 +351,6 @@ parallel_windowed_diversity_function <- function(data_dir,
     # functions
     windowed_diversity_function <- function(sample_results, 
                                             genome_size, 
-                                            num_cov_bins, 
                                             window_size, 
                                             window_step){
       
@@ -367,7 +359,6 @@ parallel_windowed_diversity_function <- function(data_dir,
       library(tidyr)
       
       genome_size <- genome_size
-      num_cov_bins <- num_cov_bins
       window_size <- window_size
       window_step <- window_step
       
@@ -403,15 +394,6 @@ parallel_windowed_diversity_function <- function(data_dir,
       result <- as.data.frame(do.call(rbind, records))
       colnames(result) <- c("start", "center", "end", "avg_pi","avg_h", "avg_depth")
       
-      result <- result %>%
-        mutate(cov_bin = cut(avg_depth, breaks = num_cov_bins))
-      
-      # Normalize pi within each coverage bin
-      result <- result %>%
-        group_by(cov_bin) %>%
-        mutate(avg_pi_z = (avg_pi - mean(avg_pi, na.rm = TRUE)) / (sd(avg_pi, na.rm = TRUE) + 1e-9)) %>%
-        replace_na(list(avg_pi_z = 0.0))
-      
       # save down the new file
       return(result)
       
@@ -432,7 +414,6 @@ parallel_windowed_diversity_function <- function(data_dir,
     # run the function
     window_pi_file <- windowed_diversity_function(sample_results = df_i,
                                                   genome_size = 30000,
-                                                  num_cov_bins = 10,
                                                   window_size = 1000,
                                                   window_step = 100)
     

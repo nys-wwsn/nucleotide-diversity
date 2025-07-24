@@ -1102,6 +1102,7 @@ dat_state <- dat_state %>%
 # SAVE THE MERGED DATA FILES
 # --------------------------------------
 
+# Add Rdata extension
 save(dat_sewershed, dat_county, dat_region, dat_state,
      file = "data/combined_data.R")
 
