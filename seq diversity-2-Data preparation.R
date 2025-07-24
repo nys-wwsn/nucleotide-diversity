@@ -202,7 +202,7 @@ conc_mean <- quant.data %>%
 # --------------------------------------
 
 # load data
-load(file = "data/lineage name files.R")
+load(file = "data/lineage name files.Rdata")
 
 # count lineages per week
 var_unique_sewer <- var.data %>%

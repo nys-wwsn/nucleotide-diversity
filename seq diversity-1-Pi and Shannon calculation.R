@@ -93,7 +93,7 @@ calculate_diversity_function <- function(input, pass_option){
     left_join(depths, by = "POS") %>%
     rename(depth = sum_k)
   
-  # inpute 0 for NA shannons
+  # impute 0 for NA shannons
   result$h <- ifelse(is.na(result$h),
                      0,
                      result$h)
@@ -271,6 +271,10 @@ parallel_diversity_per_base_function <- function(data_dir,
         left_join(depths, by = "POS") %>%
         rename(depth = sum_k)
       
+      # impute 0 for NA shannons
+      result$h <- ifelse(is.na(result$h),
+                         0,
+                         result$h)
       # save output
       return(result)
     }
