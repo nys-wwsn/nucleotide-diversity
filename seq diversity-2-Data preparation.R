@@ -7,7 +7,7 @@
 # Script author: Dustin T. Hill
 
 # Created 2025-04-25
-# Last updated 2025-07-24
+# Last updated 2025-07-28
 
 # DATA PREP SCRIPT
 # Prepare genome sequence data, case data, hospitalization data, quantification
@@ -25,10 +25,6 @@ library(stringr)
 library(lubridate)
 library(tidyr)
 library(dplyr)
-
-# --------------------------------------
-# FUNCTIONS
-# --------------------------------------
 
 # --------------------------------------
 # DATA PREPARATION FOR GENOME
