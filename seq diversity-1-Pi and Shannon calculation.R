@@ -7,7 +7,7 @@
 # Author - Dustin T Hill
 
 # Created - May 19, 2025
-# Last updated - May 19, 2025
+# Last updated - August 27, 2025, 2025
 
 # Description: This script loads each Freyja summary file (TSV format) and 
 # processes to calculate nucleotide diveristy (Pi) and Shannon's H. Each
