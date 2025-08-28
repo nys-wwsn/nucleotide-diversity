@@ -31,7 +31,7 @@ library(dplyr)
 # --------------------------------------
 
 # genomewide
-genome <- read.csv("data/genomewide_pi.csv", stringsAsFactors = FALSE)
+genome <- read.csv("data/diversity_output/genomewide_pi.csv", stringsAsFactors = FALSE)
 
 # edit date filed
 genome$date <- ymd(genome$date)
@@ -49,7 +49,7 @@ genome_weekly <- genome %>%
 # spike
 
 # spike data
-spike <- read.csv("data/spike_pi.csv")
+spike <- read.csv("data/diversity_output/spike_pi.csv")
 
 # edit date filed
 spike$date <- ymd(spike$date)
@@ -66,7 +66,7 @@ spike_weekly <- spike %>%
 diversity_df <- left_join(genome_weekly, spike_weekly, by = c("cdc_id", "week"))
 
 # s1 ntd
-ntd <- read.csv("data/s1_ntd_pi.csv")
+ntd <- read.csv("data/diversity_output/s1_ntd_pi.csv")
 
 # edit date filed
 ntd$date <- ymd(ntd$date)
@@ -84,7 +84,7 @@ ntd_weekly <- ntd %>%
 diversity_df <- left_join(diversity_df, ntd_weekly, by = c("cdc_id", "week"))
 
 # s1 rbd
-rbd <- read.csv("data/s1_rbd_pi.csv")
+rbd <- read.csv("data/diversity_output/s1_rbd_pi.csv")
 
 # edit date filed
 rbd$date <- ymd(rbd$date)
@@ -102,7 +102,7 @@ rbd_weekly <- rbd %>%
 diversity_df <- left_join(diversity_df, rbd_weekly, by = c("cdc_id", "week"))
 
 # orf
-orf <- read.csv("data/orf_nsp5_6_pi.csv")
+orf <- read.csv("data/diversity_output/orf_nsp5_6_pi.csv")
 
 # edit date filed
 orf$date <- ymd(orf$date)
@@ -120,7 +120,7 @@ orf_weekly <- orf %>%
 diversity_df <- left_join(diversity_df, orf_weekly, by = c("cdc_id", "week"))
 
 # cov mt 2
-cov_mt_2 <- read.csv("data/cov_mt_2_pi.csv")
+cov_mt_2 <- read.csv("data/diversity_output/cov_mt_2_pi.csv")
 
 # edit date filed
 cov_mt_2$date <- ymd(cov_mt_2$date)
