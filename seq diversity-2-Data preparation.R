@@ -154,10 +154,10 @@ diversity_df$facility_id[diversity_df$facility_id == "NY063024481A"] <-
 # --------------------------------------
 
 # data load - meta
-meta <- read.csv("data/nys-wws-sewersheds.csv", stringsAsFactors = FALSE)
+meta <- read.csv("data/other data/nys-wws-sewersheds.csv", stringsAsFactors = FALSE)
 
 # data load - quant data
-quant.data <- readRDS("data/sars2_concentration.rds")
+quant.data <- readRDS("data/other data/sars2_concentration.rds")
 
 # Calculating copies of SARS2 RNA #
 quant.data$copies <- 3.5
@@ -198,7 +198,7 @@ conc_mean <- quant.data %>%
 # --------------------------------------
 
 # load data
-load(file = "data/lineage name files.Rdata")
+load(file = "data/other data/lineage name files.Rdata")
 
 # count lineages per week
 var_unique_sewer <- var.data %>%
@@ -232,17 +232,6 @@ var_unique_sewer <- var.data %>%
          n_variants_no_thresh) %>%
   distinct()
 
-# number of samples  by region each week
-sample_count <- var.data %>%
-  group_by(region, week = floor_date(date, 
-                                     unit = 'weeks', 
-                                     week_start = 7) ) %>%
-  summarize(samples_by_region = length(unique(facility_id))
-  ) %>%
-  ungroup()%>%
-  filter(week <= as.Date("2025-04-21"))
-
-saveRDS(sample_count, "data/sample_count.rds")
 
 # count lineages per week by county
 var_unique_county <- var.data %>%
@@ -332,8 +321,8 @@ var_unique_state <- var.data %>%
 # --------------------------------------
 
 # load data
-hosp_data <- readRDS("data/covid_hosp.rds")
-county_region <- read.csv("data/County_Region.csv")
+hosp_data <- readRDS("data/clinical data/covid_hosp.rds")
+county_region <- read.csv("data/other data/County_Region.csv")
 county_region$county[county_region$county == "St. Lawrence"] <- "St Lawrence"
 
 # fix date
@@ -384,7 +373,7 @@ hosp_county_weekly <- hosp_county_weekly %>%
 # --------------------------------------
 
 # load data
-all.cases <- readRDS("data/covid_cases.rds")
+all.cases <- readRDS("data/clinical data/covid_cases.rds")
 
 # data prep (date variable change and make case data numeric)
 all.cases$date <- mdy(all.cases$test_date)
