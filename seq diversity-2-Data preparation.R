@@ -7,7 +7,7 @@
 # Script author: Dustin T. Hill
 
 # Created 2025-04-25
-# Last updated 2025-07-28
+# Last updated 2025-09-25
 
 # DATA PREP SCRIPT
 # Prepare genome sequence data, case data, hospitalization data, quantification
@@ -25,6 +25,10 @@ library(stringr)
 library(lubridate)
 library(tidyr)
 library(dplyr)
+
+# --------------------------------------
+# FUNCTIONS
+# --------------------------------------
 
 # --------------------------------------
 # DATA PREPARATION FOR GENOME
@@ -181,13 +185,16 @@ quant.data  <- quant.data %>%
 
 # weekly mean of the quant data for now
 conc_mean <- quant.data %>%
+  # remove withheld samples (did not meet quality control)
+  filter(withheld == "Reported") %>%
   group_by(week = floor_date(sample_collect_date, 
                              unit = "weeks", 
                              week_start = 7), 
            facility_id
   ) %>%
   summarize(mean_sars2_conc = mean(copies, na.rm = TRUE),
-            conc_samples = n()
+            conc_samples = n(),
+            mean_ct = mean(ct, na.rm = TRUE)
   ) %>%
   ungroup()
 
@@ -209,7 +216,8 @@ var_unique_sewer <- var.data %>%
            region,
            county
   ) %>%
-  mutate(n_variants_no_thresh = length(unique(lineage))
+  mutate(n_lineages_no_thresh = length(unique(lineage)),
+         n_variants_no_thresh = length(unique(variant))
   ) %>%
   ungroup() %>%
   dplyr::filter(variant_pct > 0.05)%>%
@@ -220,7 +228,8 @@ var_unique_sewer <- var.data %>%
            region,
            county
   ) %>%
-  mutate(n_variants_5 = length(unique(lineage))
+  mutate(n_lineages_5 = length(unique(lineage)),
+         n_variants_5 = length(unique(variant))
   ) %>%
   ungroup() %>%
   filter(week <= as.Date("2025-04-21")) %>%
@@ -229,9 +238,22 @@ var_unique_sewer <- var.data %>%
          county, 
          region, 
          n_variants_5, 
-         n_variants_no_thresh) %>%
+         n_lineages_5,
+         n_variants_no_thresh,
+         n_lineages_no_thresh) %>%
   distinct()
 
+# number of samples  by region each week
+sample_count <- var.data %>%
+  group_by(region, week = floor_date(date, 
+                                     unit = 'weeks', 
+                                     week_start = 7) ) %>%
+  summarize(samples_by_region = length(unique(facility_id))
+  ) %>%
+  ungroup()%>%
+  filter(week <= as.Date("2025-04-21"))
+
+saveRDS(sample_count, "data/other data/sample_count.rds")
 
 # count lineages per week by county
 var_unique_county <- var.data %>%
@@ -242,7 +264,8 @@ var_unique_county <- var.data %>%
     region,
     county
   ) %>%
-  mutate(n_variants_no_thresh = length(unique(lineage))
+  mutate(n_lineages_no_thresh = length(unique(lineage)),
+         n_variants_no_thresh = length(unique(variant))
   ) %>%
   ungroup() %>%
   dplyr::filter(variant_pct > 0.05)%>%
@@ -253,11 +276,13 @@ var_unique_county <- var.data %>%
     region,
     county
   ) %>%
-  mutate(n_variants_5 = length(unique(lineage))
+  mutate(n_lineages_5 = length(unique(lineage)),
+         n_variants_5 = length(unique(variant))
   ) %>%
   ungroup() %>%
   filter(week <= as.Date("2025-04-21")) %>%
-  select(week, region, county, n_variants_5, n_variants_no_thresh) %>%
+  select(week, region, county, n_variants_5, n_variants_no_thresh,
+         n_lineages_5,n_lineages_no_thresh ) %>%
   distinct()
 
 # variant county by region
@@ -268,7 +293,8 @@ var_unique_region <- var.data %>%
                                  week_start = 7),
     region
   ) %>%
-  mutate(n_variants_no_thresh = length(unique(lineage))
+  mutate(n_lineages_no_thresh = length(unique(lineage)),
+         n_variants_no_thresh = length(unique(variant))
   ) %>%
   ungroup() %>%
   dplyr::filter(variant_pct > 0.05)%>%
@@ -278,11 +304,13 @@ var_unique_region <- var.data %>%
                                  week_start = 7),
     region
   ) %>%
-  mutate(n_variants_5 = length(unique(lineage))
+  mutate(n_lineages_5 = length(unique(lineage)),
+         n_variants_5 = length(unique(variant))
   ) %>%
   ungroup() %>%
   filter(week <= as.Date("2025-04-21")) %>%
-  select(week, region,  n_variants_5, n_variants_no_thresh) %>%
+  select(week, region,  n_variants_5, n_variants_no_thresh,
+         n_lineages_5,n_lineages_no_thresh) %>%
   distinct()
 
 # variant county statewide
@@ -297,7 +325,8 @@ var_unique_state <- var.data %>%
                                  week_start = 7),
     group
   ) %>%
-  mutate(n_variants_no_thresh = length(unique(lineage))
+  mutate(n_lineages_no_thresh = length(unique(lineage)),
+         n_variants_no_thresh = length(unique(variant))
   ) %>%
   ungroup() %>%
   dplyr::filter(variant_pct > 0.05)%>%
@@ -307,11 +336,13 @@ var_unique_state <- var.data %>%
                                  week_start = 7),
     group
   ) %>%
-  mutate(n_variants_5 = length(unique(lineage))
+  mutate(n_lineages_5 = length(unique(lineage)),
+         n_variants_5 = length(unique(variant))
   ) %>%
   ungroup() %>%
   filter(week <= as.Date("2025-04-21")) %>%
-  select(week, group, n_variants_5, n_variants_no_thresh) %>%
+  select(week, group, n_variants_5, n_variants_no_thresh,
+         n_lineages_5,n_lineages_no_thresh) %>%
   distinct()
 
 # -----------------------------------------------------------------------------
@@ -364,7 +395,8 @@ hosp_county_weekly <- hosp_county %>%
 
 # filter for the dates we have variant data for plus three extra weeks for lags
 hosp_county_weekly <- hosp_county_weekly %>%
-  filter(week >= min(diversity_df$week) & week <= max(diversity_df$week)+weeks(3))
+  filter(week >= min(diversity_df$week) & 
+           week <= max(diversity_df$week)+weeks(3))
 
 # -----------------------------------------------------------------------------
 
@@ -410,7 +442,8 @@ cases_county_weekly$case_incidence <- cases_county_weekly$cases *
 
 # filter to var data start date and end date plus three weeks
 cases_county_weekly <- cases_county_weekly %>%
-  filter(week >= min(diversity_df$week) & week <= max(diversity_df$week)+weeks(3))
+  filter(week >= min(diversity_df$week) & 
+           week <= max(diversity_df$week)+weeks(3))
 
 # -----------------------------------------------------------------------------
 
@@ -424,6 +457,15 @@ dat_sewershed <- full_join(diversity_df,
                            by = c("facility_id", "week")) %>%
   filter(week >= (as.Date("2023-01-01"))) %>%
   filter(week <= "2025-04-21")
+
+
+# coverage
+# coverage data
+coverage <- read.csv("data/other data/coverage.csv") %>%
+  group_by(facility_id, week = floor_date(ymd(date), unit = "weeks", week_start = 7)) %>%
+  summarize(coverage = mean(coverage, na.rm = TRUE))
+
+dat_sewershed <- left_join(dat_sewershed, coverage, by = c("facility_id", "week"))
 
 # merge variant counts
 dat_sewershed <- left_join(dat_sewershed, var_unique_sewer, 
@@ -503,11 +545,17 @@ dat_sewershed <- dat_sewershed %>%
                                  maxgap = 3,
                                  na.rm = FALSE),
     
-    # missing variant counts
+    # missing variant/lineage family counts
     n_variants_no_thresh_approx = na.approx(n_variants_no_thresh, 
                                             maxgap = 3, 
                                             na.rm = FALSE),
     n_variants_5_approx = na.approx(n_variants_5, 
+                                    maxgap = 3, 
+                                    na.rm = FALSE),
+    n_lineages_no_thresh_approx = na.approx(n_lineages_no_thresh, 
+                                            maxgap = 3, 
+                                            na.rm = FALSE),
+    n_lineages_5_approx = na.approx(n_lineages_5, 
                                     maxgap = 3, 
                                     na.rm = FALSE)
     
@@ -612,6 +660,16 @@ dat_sewershed <- dat_sewershed %>%
                                3, 
                                align = "right", 
                                na.pad = TRUE, 
+                               na.rm = TRUE),
+    n_lineages_no_thresh_3w = rollmean(n_lineages_no_thresh_approx, 
+                                       3, 
+                                       align = "right", 
+                                       na.pad = TRUE, 
+                                       na.rm = TRUE),
+    n_lineages_5_3w = rollmean(n_lineages_5_approx, 
+                               3, 
+                               align = "right", 
+                               na.pad = TRUE, 
                                na.rm = TRUE)
     
     
@@ -694,10 +752,20 @@ dat_county <- dat_sewershed %>%
                                         na.rm = TRUE),
     
     # rolling average sewershed variant counts
-    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
-                                        na.rm = TRUE),
-    n_variants_5_3w_mean = mean(n_variants_5_3w, 
-                                na.rm = TRUE)
+    n_variants_no_thresh_3w_mean = weighted.mean(n_variants_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_variants_5_3w_mean = weighted.mean(n_variants_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    n_lineages_no_thresh_3w_mean = weighted.mean(n_lineages_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_lineages_5_3w_mean = weighted.mean(n_lineages_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    mean_coverage = weighted.mean(x=coverage,w= population_served,
+                                  na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -827,10 +895,21 @@ dat_region <- dat_sewershed %>%
                                         na.rm = TRUE),
     
     # rolling average sewershed variant counts
-    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
-                                        na.rm = TRUE),
-    n_variants_5_3w_mean = mean(n_variants_5_3w, 
-                                na.rm = TRUE)
+    n_variants_no_thresh_3w_mean = weighted.mean(x=n_variants_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_variants_5_3w_mean = weighted.mean(x=n_variants_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    n_lineages_no_thresh_3w_mean = weighted.mean(x=n_lineages_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_lineages_5_3w_mean = weighted.mean(x=n_lineages_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    mean_coverage = weighted.mean(x = coverage,
+                                  w = population_served,
+                                  na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -987,10 +1066,21 @@ dat_state <- dat_state %>%
                                        na.rm = TRUE),
     
     # rolling average sewershed variant counts
-    n_variants_no_thresh_3w_mean = mean(n_variants_no_thresh_3w, 
-                                        na.rm = TRUE),
-    n_variants_5_3w_mean = mean(n_variants_5_3w, 
-                                na.rm = TRUE)
+    n_variants_no_thresh_3w_mean = weighted.mean(x = n_variants_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_variants_5_3w_mean = weighted.mean(x=n_variants_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    n_lineages_no_thresh_3w_mean = weighted.mean(x = n_lineages_no_thresh_3w, 
+                                                 w = population_served,
+                                                 na.rm = TRUE),
+    n_lineages_5_3w_mean = weighted.mean(x=n_lineages_5_3w, 
+                                         w = population_served,
+                                         na.rm = TRUE),
+    mean_coverage = weighted.mean(x = coverage,
+                                  w = population_served,
+                                  na.rm = TRUE)
   )%>%
   ungroup() %>%
   filter(week <= week_max)
@@ -1075,19 +1165,20 @@ dups <- dat_sewershed %>%
   group_by(facility_id, week) %>%
   filter(n() > 1)
 
-# filter out nyc counties and sewersheds
+# remove nyc
 dat_sewershed <- dat_sewershed %>%
   filter(region != "New York City")
 dat_county <- dat_county %>%
   filter(region != "New York City")
+dat_region <- dat_region %>%
+  filter(region != "New York City")
 dat_state <- dat_state %>%
   filter(group != "NYC")
-
 # --------------------------------------
 # SAVE THE MERGED DATA FILES
 # --------------------------------------
 
-# Add Rdata extension
 save(dat_sewershed, dat_county, dat_region, dat_state,
      file = "data/combined_data.Rdata")
+
 
