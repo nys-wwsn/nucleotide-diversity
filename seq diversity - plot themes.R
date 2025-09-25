@@ -13,7 +13,6 @@ theme_dth_maps <-
   theme_void(base_size = 12)+
   theme(plot.title = element_text(hjust = 0.5),
         text=element_text(family = "roboto_c"),
-        axis.ticks = element_blank(),
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.y = element_line(color = "gray80"),
@@ -43,5 +42,5 @@ theme_dth_1 <-
 # pal <- met.brewer(name = "Austria",
 #                   n = 6)
 
-pal <- met.brewer(name = "Hiroshige",
+pal <- MetBrewer::met.brewer(name = "Hiroshige",
                   n = 6)
