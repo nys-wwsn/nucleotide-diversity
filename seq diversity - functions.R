@@ -84,12 +84,12 @@ calculate_diversity_function <- function(input, pass_option){
   
   # select reference counts and alternate counts
   reference_counts <- input %>% 
-    select(POS, REF_DP) %>% 
+    dplyr::select(POS, REF_DP) %>% 
     distinct(POS, .keep_all = TRUE) %>% 
     rename(k = REF_DP) %>%
     mutate(freq = k)
   alternate_counts <- input %>% 
-    select(POS, ALT_DP) %>% 
+    dplyr::select(POS, ALT_DP) %>% 
     rename(k = ALT_DP) %>%
     mutate(freq = k)
   
@@ -320,12 +320,12 @@ parallel_diversity_per_base_function <- function(data_dir,
       
       # select reference counts and alternate counts
       reference_counts <- input %>% 
-        select(POS, REF_DP) %>% 
+        dplyr::select(POS, REF_DP) %>% 
         distinct(POS, .keep_all = TRUE) %>% 
         rename(k = REF_DP) %>%
         mutate(freq = k)
       alternate_counts <- input %>% 
-        select(POS, ALT_DP) %>% 
+        dplyr::select(POS, ALT_DP) %>% 
         rename(k = ALT_DP) %>%
         mutate(freq = k)
       
@@ -1154,6 +1154,7 @@ round_signifi_function <- function(x){
 }
 
 # model summary function
+# model summary function
 model_summary_function <- function(dataframe,
                                    outcome,
                                    model,
@@ -1383,7 +1384,77 @@ model_summary_function <- function(dataframe,
       mutate_if(., is.numeric, round_signifi_function)
     
     return(tab_export_final)
-  } 
+  } else if(glmer_option == "glmmtmb"){
+    # Effron R2 - compares the actual to the predicted values 
+    # against the residuals
+    dataframe$outcome_name <- dataframe[[outcome]]
+    
+    Actual <- dataframe$outcome_name
+    Predicted = predict(model , type="response")
+    Residuals = residuals(model )
+    
+    effron_r <- efronRSquared(residual = Residuals, 
+                              predicted = Predicted, 
+                              statistic = "EfronRSquared")
+    effron_r
+    
+    r2 <- effron_r
+    
+    
+    r2 <- as.data.frame(cbind(names(r2), r2))
+    colnames(r2) <- c("variable", "Est")
+    aic <- AIC(model)
+    aic <- as.data.frame(cbind("AIC", aic))
+    colnames(aic) <- c("variable", "Est")
+    
+    # model coefficients, se, and p values
+    cc <- coef(summary(model))
+    cc <- within(as.data.frame(cc$cond),
+                 {   `Std. Error` <- `Std. Error`
+                 `t value` <- Estimate/`Std. Error`
+                 `Pr(>|t|)` <- 2*pt(-abs(`t value`), df=length(dataframe)-1)
+                 })
+    
+    #add ci
+    #calculate se from dataframe
+    se <- (cc$`Std. Error`)
+    # table of estimates with 95% CI
+    (tab <- cbind(Est = cc$Estimate, LL = cc$Estimate - 1.96 * se, UL = cc$Estimate + 1.96 *
+                    se))
+    tab2 <- cbind(cc, tab)
+    
+    # add stars based on the p value 
+    tab2$`t value2` <- ifelse(tab2$`Pr(>|t|)` < 0.1, 
+                              paste(round(tab2$`t value`, 2), "*", sep = ""), 
+                              round(tab2$`t value`, 2))
+    tab2$`t value2` <- ifelse(tab2$`Pr(>|t|)` < 0.05, 
+                              paste(round(tab2$`t value`, 2), "**", sep = ""), 
+                              round(tab2$`t value`, 2))
+    tab2$`t value2` <- ifelse(tab2$`Pr(>|t|)` < 0.01, 
+                              paste(round(tab2$`t value`, 2), "***", sep = ""), 
+                              round(tab2$`t value`, 2))
+    
+    # add variable names
+    tab2$variable <- row.names(tab2)
+    # grab columns and export table
+    tab_export <- tab2 %>% dplyr::select(variable, Est, `Std. Error`, `t value2`, 
+                                         `Pr(>|z|)`)
+    # add number of observations
+    n <- nobs(model)
+    n <- as.data.frame(cbind("n", n))
+    colnames(n) <- c("variable", "Est")
+    
+    tab_export$Est <- as.character(tab_export$Est)
+    tab_export_final <- bind_rows(tab_export, n, r2, aic)
+    
+    tab_export_final$Est <- as.numeric(tab_export_final$Est)
+    
+    # round values
+    tab_export_final <- tab_export_final %>%
+      mutate_if(., is.numeric, round_signifi_function)
+    
+    return(tab_export_final)
+  }
   
 }
 
@@ -1444,7 +1515,7 @@ granger_casuality_function <- function(dataframe,
     mutate(group = group,
            outcome = outcome,
            test = "x predicts y") %>%
-    select(group, outcome, test, `F statistic`, `P value`) %>%
+    dplyr::select(group, outcome, test, `F statistic`, `P value`) %>%
     na.omit()
   
   g2 <- as.data.frame(grangertest(d_x ~ d_y, order = lag))
@@ -1455,7 +1526,7 @@ granger_casuality_function <- function(dataframe,
     mutate(group = group,
            outcome = outcome,
            test = "y predicts x") %>%
-    select(group, outcome, test, `F statistic`, `P value`) %>%
+    dplyr::select(group, outcome, test, `F statistic`, `P value`) %>%
     na.omit()
   g <- bind_rows(g1, g2)
   return(g)

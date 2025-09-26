@@ -5,6 +5,8 @@ This repository contains R code and data estimating the nucleotide diversity fro
 
 ## Citation
 
+Dustin T. Hill, Rafi Schulman, Christopher Dunham, Ian Caldas, Yasir Ahmed, Lindsey Rickerman, Kirsten St. George, Daryl Lamson, Hyatt Green, Yifan Zhu, David A. Larsen. Diversity of SARS-CoV-2 genome in wastewater and implications for shifts in infectious disease transmission. Presented at Syracuse University Postdoc Research Showcase. Syracuse, NY. (May 2025) and presented at Testing the Waters 8. Seattle, WA. (June 2025).
+
 ## How to use this repository
 This repository contains several folders with data and R scripts. 
 
@@ -68,6 +70,6 @@ $prop = \frac{\text{frequency of allele}}{\text{total alleles observed}} $
 $H_{w} = \frac{1}{L} \sum{H_{s}}$
 
 
-#### mean Shannon
+#### Mean Shannon
 
 The genomewide mean Shannon H is the mean of the windowed values.
