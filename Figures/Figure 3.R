@@ -120,7 +120,7 @@ hosp_plot <-
   ggplot(data = dat_state)+
   geom_bar(aes(x = week,
                y = hosp_incidence,
-               fill = "grey70"),
+               fill = "grey60"),
            position = "dodge",
            stat = "identity")+
   geom_bar(aes(fill = "grey60",
@@ -130,7 +130,7 @@ hosp_plot <-
            stat = "identity")+
   geom_line(
     aes(x = week,
-        y = n_variants_no_thresh_3w_mean/8,
+        y = n_variants_no_thresh_3w_mean/10,
         color = "#e76254"),
     lwd = 1
   )+
@@ -169,7 +169,7 @@ hosp_plot <-
                     label = "Cases/Hospitalizations")+
   scale_y_continuous(
     "COVID-19 hospitalizations per 100k", 
-    sec.axis = sec_axis(~ .*8, name = expression(paste("Variant count/",
+    sec.axis = sec_axis(~ .*10, name = expression(paste("Variant count/",
                                                        ~Pi[ww], "/", "H"[ww], ))
     )
   )
