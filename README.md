@@ -5,7 +5,7 @@ This repository contains R code and data estimating the nucleotide diversity fro
 
 ## Citation
 
-Dustin T. Hill, Rafi Schulman, Christopher Dunham, Ian Caldas, Yasir Ahmed, Lindsey Rickerman, Kirsten St. George, Daryl Lamson, Hyatt Green, Yifan Zhu, David A. Larsen. Diversity of SARS-CoV-2 genome in wastewater and implications for shifts in infectious disease transmission. Presented at Syracuse University Postdoc Research Showcase. Syracuse, NY. (May 2025) and presented at Testing the Waters 8. Seattle, WA. (June 2025).
+Dustin T. Hill, Rafael Schulman, Christopher Dunham, Yifan Zhu, Ian Vasconcellos Caldas, Yasir Ahmed-Braimah, Daryl Lamson, Lindsey Rickerman, Kirsten St. George, Hyatt Green, Brittany L. Kmush, Frank Middleton, David A. Larsen. Viral genetic variability in wastewater predicts changes in community infection levels. (2025). medRxiv.[https://doi.org/10.1101/2025.10.24.25338735](https://doi.org/10.1101/2025.10.24.25338735)
 
 ## How to use this repository
 This repository contains several folders with data and R scripts. 

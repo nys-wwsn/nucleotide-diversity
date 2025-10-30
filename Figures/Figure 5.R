@@ -176,14 +176,14 @@ mylegend <- g_legend(lag_case_plot)
 # save
 png("Figures/Figure 5.png",
     units = "in",
-    width = 10, height = 6.5,
+    width = 6.5, height = 10,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
 plot_grid(
   plot_grid(lag_case_plot+ theme(legend.position = "none"),
             lag_hosp_plot + theme(legend.position = "none"),
-            labels = c("A", "B"), nrow = 1, ncol = 2),
+            labels = c("A", "B"), nrow = 2, ncol = 1),
   plot_grid(NULL, mylegend, NULL, nrow = 1, rel_widths = c(1, 0.5, 1)),
   nrow = 2,
   rel_heights = c(5,1)
