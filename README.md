@@ -73,4 +73,3 @@ $H_{w} = \frac{1}{L} \sum{H_{s}}$
 #### Mean Shannon
 
 The genomewide mean Shannon H is the mean of the windowed values.
-
