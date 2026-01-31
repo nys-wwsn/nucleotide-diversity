@@ -21,6 +21,7 @@ library(rcompanion)
 library(lme4)
 library(lmerTest)
 library(nlme)
+library(DescTools)
 
 
 # --------------------------------------
@@ -1563,7 +1564,7 @@ time_cor_plot_function <- function(dataframe,
     geom_point()+
     stat_cor(method = "spearman")+
     theme_dth_1+
-    labs(x = "S1 NTD Pi",
+    labs(x = expression(paste("S1 NTD ",Pi[ww])),
          y = "",
          title = "")
   
@@ -1586,7 +1587,7 @@ time_cor_plot_function <- function(dataframe,
          title = "")+
     scale_y_continuous(
       "COVID-19 cases\nper 100k", 
-      sec.axis = sec_axis(~ ./ 10000, name = "S1 NTD Pi"))+
+      sec.axis = sec_axis(~ ./ 10000, name = expression(paste("S1 NTD ",Pi[ww]))))+
     scale_color_manual(values = c("darkblue"),
                        labels = c("Pi"),
                        name = "")+
@@ -1609,3 +1610,306 @@ time_cor_plot_function <- function(dataframe,
   return(panel_final)
 }
 # -----------------------------------------------------------------------------
+
+# boxplot function
+
+# make it a function and create all the plots
+spatial_boxplot_function <- function(dataframe,
+                                     aggregation_name,
+                                     outcome_var,
+                                     aggregation_label,
+                                     pi_name,
+                                     h_name,
+                                     conc_name,
+                                     freyja_name){
+  
+  dataframe$aggregation <- dataframe[[aggregation_name]]
+  dataframe$outcome <- dataframe[[outcome_var]]
+  dataframe$pi <- dataframe[[pi_name]]
+  dataframe$h <- dataframe[[h_name]]
+  dataframe$conc <- dataframe[conc_name]
+  dataframe$freyja_name <- dataframe[[freyja_name]]
+  
+  # correlation by region
+  region_cor <- dataframe %>%
+    group_by(aggregation) %>%
+    summarize(
+      pi_cor = cor(pi,
+                   outcome,
+                   method = c("spearman"),
+                   use = "na.or.complete"),
+      h_cor = cor(h,
+                  outcome,
+                  method = c("spearman"),
+                  use = "na.or.complete"),
+      freyja_cor = cor(freyja_name,
+                       outcome,
+                       method = c("spearman"),
+                       use = "na.or.complete"),
+      conc_cor = cor(conc,
+                     outcome,
+                     method = c("spearman"),
+                     use = "na.or.complete")
+    ) %>%
+    ungroup()
+  
+  # pivot longer
+  region_cor <- region_cor %>%
+    pivot_longer(
+      cols = c("pi_cor",
+               "h_cor",
+               "freyja_cor",
+               "conc_cor")
+    )
+  
+  # factor the labels
+  region_cor$group <- factor(region_cor$name,
+                             levels = c("pi_cor",
+                                        "h_cor",
+                                        "freyja_cor",
+                                        "conc_cor"),
+                             labels = c(
+                               "Concentration",
+                               "Freyja variant count",
+                               expression("S1 NTD H"[ww]),
+                               expression("S1 NTD "~ pi[ww])))
+  
+  # panel - top for cases, bottome for hospitalizations
+  boxplot <- 
+    ggplot(data = region_cor, aes(x = group, y = value, fill = name))+
+    geom_boxplot()+
+    ylim(0,1)+
+    labs(title = paste(aggregation_label, " weekly aggregation"),
+         x = "",
+         y = "Spearman correlation",
+         fill = "Group")+
+    theme_dth_1+
+    scale_fill_manual(
+      values = c(freyja_cor ="#e76254",
+                 h_cor = "#72bcd5",
+                 pi_cor = "#376795",
+                 conc_cor = "#ef8a47"),
+      labels = c(
+        "Concentration",
+        "Freyja variant count",
+        expression("S1 NTD H"[ww]),
+        expression("S1 NTD "~ pi[ww]))
+    )+
+    theme(legend.position = "right",
+          axis.text.x = element_blank())
+  
+  return(boxplot)
+}
+
+# ------------------------------------------------------------------------------
+
+# county scatterplot function
+# county cor plot function
+county_cor_plot_function <- function(dataframe,
+                                     county_name,
+                                     var_name,
+                                     outcome_name,
+                                     cor_value,
+                                     pal_color,
+                                     pop_value,
+                                     outcome_text,
+                                     p_val,
+                                     var_text){
+  
+  df <- dataframe %>%
+    filter(county == county_name)
+  df$var_name = df[[var_name]]
+  df$outcome_name = df[[outcome_name]]
+  
+  plot <-
+    ggplot(data = df,
+           aes(x = var_name,
+               y = outcome_name))+
+    geom_point(
+      color = pal_color)+
+    theme_dth_1+
+    theme(legend.background = element_blank(),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          axis.ticks = element_line(size = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))+
+    labs(title = paste("\u03c1 = ", cor_value, ", p value ", p_val),
+         x = var_text,
+         y = outcome_text)
+  
+  return(plot)
+}
+
+#-------------------------------------------------------------------------------
+
+
+# function for comparing the spearman correlation coefficients across spatial
+# scales
+spatial_cor_compare_function <- function(
+    dataframe,
+    aggregation,
+    outcome_var,
+    pi_var,
+    h_var,
+    freyja_var,
+    conc_var){
+  
+  dataframe$pi_var <- dataframe[[pi_var]]
+  dataframe$h_var <- dataframe[[h_var]]
+  dataframe$freyja_var <- dataframe[[freyja_var]]
+  dataframe$conc_var <- dataframe[[conc_var]]
+  dataframe$outcome_var <- dataframe[[outcome_var]]
+  
+  # correlation across all sewersheds instead of one by one
+  cor <- cor.test(dataframe$pi_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_1 <- cor$p.value
+  est_1 <- cor$estimate
+  n_1 <- sum(!is.na(dataframe$pi_var))
+  z1 <- FisherZ(est_1)
+  
+  # comparison to concentration
+  cor <- cor.test(dataframe$conc_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_2 <- cor$p.value
+  est_2 <- cor$estimate
+  n_2 <- sum(!is.na(dataframe$conc_var))
+  z2 <- FisherZ(est_2)
+  
+  fisher_z <- (z1 - z2)/sqrt((1/(n_1-3)) + (1/(n_2-3)))
+  
+  aggregation <- aggregation
+  comparison <- paste0("Pi ww ~ ", outcome_var)
+  
+  row1 <- as.data.frame(
+    cbind(aggregation,
+          comparison,
+          n_1,
+          round_2(est_1),
+          round_2(fisher_z)))
+  
+  colnames(row1) <- c("Aggregation",
+                      "Comparison",
+                      "n",
+                      "Spearman correlation coefficient",
+                      "Fisher's Z")
+  # ------------------------------------------
+  # repeat for h
+  # ------------------------------------------
+  # correlation across all sewersheds instead of one by one
+  cor <- cor.test(dataframe$h_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_1 <- cor$p.value
+  est_1 <- cor$estimate
+  n_1 <- sum(!is.na(dataframe$h_var))
+  z1 <- FisherZ(est_1)
+  
+  # comparison to concentration
+  cor <- cor.test(dataframe$conc_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_2 <- cor$p.value
+  est_2 <- cor$estimate
+  n_2 <- sum(!is.na(dataframe$conc_var))
+  z2 <- FisherZ(est_2)
+  
+  fisher_z <- (z1 - z2)/sqrt((1/(n_1-3)) + (1/(n_2-3)))
+  
+  aggregation <- aggregation
+  comparison <- paste0("H ww ~ ", outcome_var)
+  
+  row2 <- as.data.frame(
+    cbind(aggregation,
+          comparison,
+          n_1,
+          round_2(est_1),
+          round_2(fisher_z)))
+  
+  colnames(row2) <- c("Aggregation",
+                      "Comparison",
+                      "n",
+                      "Spearman correlation coefficient",
+                      "Fisher's Z")
+  # ------------------------------------------
+  # repeat for freyja
+  # ------------------------------------------
+  # correlation across all sewersheds instead of one by one
+  cor <- cor.test(dataframe$freyja_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_1 <- cor$p.value
+  est_1 <- cor$estimate
+  n_1 <- sum(!is.na(dataframe$freyja_var))
+  z1 <- FisherZ(est_1)
+  
+  # comparison to concentration
+  cor <- cor.test(dataframe$conc_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_2 <- cor$p.value
+  est_2 <- cor$estimate
+  n_2 <- sum(!is.na(dataframe$conc_var))
+  z2 <- FisherZ(est_2)
+  
+  fisher_z <- (z1 - z2)/sqrt((1/(n_1-3)) + (1/(n_2-3)))
+  
+  aggregation <- aggregation
+  comparison <- paste0("Variant count ~ ", outcome_var)
+  
+  row3 <- as.data.frame(
+    cbind(aggregation,
+          comparison,
+          n_1,
+          round_2(est_1),
+          round_2(fisher_z)))
+  
+  colnames(row3) <- c("Aggregation",
+                      "Comparison",
+                      "n",
+                      "Spearman correlation coefficient",
+                      "Fisher's Z")
+  # ------------------------------------------
+  # repeat for conc
+  # ------------------------------------------
+  # comparison to concentration
+  cor <- cor.test(dataframe$conc_var,
+                  dataframe$outcome_var,
+                  method = "spearman")
+  
+  pval_2 <- cor$p.value
+  est_2 <- cor$estimate
+  n_2 <- sum(!is.na(dataframe$conc_var))
+  
+  
+  aggregation <- aggregation
+  comparison <- paste0("Concentration ~ ", outcome_var)
+  
+  row4 <- as.data.frame(
+    cbind(aggregation,
+          comparison,
+          n_2,
+          round_2(est_2),
+          ""))
+  
+  colnames(row4) <- c("Aggregation",
+                      "Comparison",
+                      "n",
+                      "Spearman correlation coefficient",
+                      "Fisher's Z")
+  
+  ###
+  # combine dataframe
+  ###
+  df <- bind_rows(row1, row2, row3, row4)
+  
+  return(df)
+}

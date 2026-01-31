@@ -192,11 +192,43 @@ conc_mean <- quant.data %>%
                              week_start = 7), 
            facility_id
   ) %>%
+  # add fecal normalized values
+  mutate(copies_fecal_norm = copies/hum_frac_mic_copies_ml) %>%
   summarize(mean_sars2_conc = mean(copies, na.rm = TRUE),
+            mean_conc_norm = mean(copies_fecal_norm, na.rm = TRUE),
             conc_samples = n(),
             mean_ct = mean(ct, na.rm = TRUE)
   ) %>%
   ungroup()
+
+# number of samples sent for sequencing (concentration >= 3.5, non-detect cutoff)
+conc_study <- quant.data %>%
+  left_join(meta, by = c("facility_id")) %>%
+  # remove withheld samples (did not meet quality control)
+  filter(region != "New York City") %>%
+  filter(withheld == "Reported") %>%
+  group_by(week = floor_date(sample_collect_date, 
+                             unit = "weeks", 
+                             week_start = 7), 
+           facility_id
+  ) %>%
+  # add fecal normalized values
+  mutate(copies_fecal_norm = copies/hum_frac_mic_copies_ml) %>%
+  summarize(mean_sars2_conc = mean(copies, na.rm = TRUE),
+            mean_conc_norm = mean(copies_fecal_norm, na.rm = TRUE),
+            conc_samples = n(),
+            mean_ct = mean(ct, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  filter(week >= "2023-01-01") %>%
+  filter(week < "2025-04-21")
+
+samples_collected <- sum(conc_study$conc_samples, na.rm = TRUE)
+
+conc_loq <- conc_study %>%
+  filter(mean_sars2_conc >=3.5) #17657
+
+samples_to_be_sequenced <- sum(conc_loq$conc_samples,na.rm = TRUE)
 
 # -----------------------------------------------------------------------------
 
@@ -519,6 +551,9 @@ dat_sewershed <- dat_sewershed %>%
     mean_sars2_conc_approx = na.approx(mean_sars2_conc, 
                                        maxgap = 3, 
                                        na.rm = FALSE),
+    mean_conc_norm_approx = na.approx(mean_conc_norm, 
+                                       maxgap = 3, 
+                                       na.rm = FALSE),
     # missing h values
     genomewide_h_approx= na.approx(genomewide_h, 
                                    maxgap = 3, 
@@ -607,6 +642,11 @@ dat_sewershed <- dat_sewershed %>%
                                    align = "right", 
                                    na.pad = TRUE, 
                                    na.rm = TRUE),
+    mean_conc_norm_ma3 = rollmean(mean_conc_norm_approx, 
+                                   3, 
+                                   align = "right", 
+                                   na.pad = TRUE, 
+                                   na.rm = TRUE),
     # h rolling average
     genomewide_h_ma3 = rollmean(genomewide_h_approx, 
                                 3, 
@@ -685,6 +725,22 @@ dups <- dat_sewershed %>%
   group_by(facility_id, week) %>%
   filter(n() > 1)
 
+# normalized conc values > inf remove (dividing by 0 for sites with no fecal data)
+dat_sewershed <- dat_sewershed %>%
+  mutate(
+    mean_conc_norm = ifelse(
+      mean_conc_norm > 10000, NA,
+      mean_conc_norm
+    ),
+    mean_conc_norm_approx = ifelse(
+      mean_conc_norm_approx > 10000, NA,
+      mean_conc_norm_approx
+    ),
+    mean_conc_norm_ma3 = ifelse(
+      mean_conc_norm_ma3 > 10000, NA,
+    mean_conc_norm_ma3)
+  )
+
 # --------------------------------------
 # COUNTY LEVEL COMBINED DATA FILE
 # --------------------------------------
@@ -720,6 +776,9 @@ dat_county <- dat_sewershed %>%
                                           na.rm = TRUE),
     # concentration interpolate
     mean_sars2_conc_county_3w = weighted.mean(x = mean_sars2_conc_ma3, 
+                                              w = population_served, 
+                                              na.rm = TRUE),
+    mean_conc_norm_county_3w = weighted.mean(x = mean_conc_norm_ma3, 
                                               w = population_served, 
                                               na.rm = TRUE),
     # h values interpolate
@@ -865,6 +924,9 @@ dat_region <- dat_sewershed %>%
                                           na.rm = TRUE),
     # regional conc values
     mean_sars2_conc_region_3w = weighted.mean(x = mean_sars2_conc_ma3, 
+                                              w = population_served, 
+                                              na.rm = TRUE),
+    mean_conc_norm_region_3w = weighted.mean(x = mean_conc_norm_ma3, 
                                               w = population_served, 
                                               na.rm = TRUE),
     # regional h values
@@ -1036,6 +1098,9 @@ dat_state <- dat_state %>%
                                          na.rm = TRUE),
     # statewide concentration
     mean_sars2_conc_state_3w = weighted.mean(x = mean_sars2_conc_ma3, 
+                                             w = population_served, 
+                                             na.rm = TRUE),
+    mean_conc_norm_state_3w = weighted.mean(x = mean_conc_norm_ma3, 
                                              w = population_served, 
                                              na.rm = TRUE),
     # statewide h values
