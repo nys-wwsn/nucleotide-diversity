@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-25
 
-# Main analysis - Figure 4
+# Main analysis - Figure 5
 
 # --------------------------------------
 # PACKAGES
@@ -55,225 +55,139 @@ max_week <- "2025-04-20"
 
 # -----------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# Figure 4 - correlation scatterplots for all 3 measures plus concentration
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Figure 5 - lag and lead times for all measures
+# --------------------------------------------------------------------------
 
-# Fisher test for different correlations
-# compare correlation coefficients to see if they are significantly different
+# case
+lag_case <- lag_lead_function(dataframe = dat_state,
+                              columns = c(# pi
+                                "ntd_pi_state_3w",
+                                # H
+                                "ntd_h_state_3w",
+                                # var count
+                                "n_variants_no_thresh_3w_mean",
+                                # conc
+                                "mean_sars2_conc_state_3w"),
+                              lags = seq(1:10))
 
-# resources
-# https://rpubs.com/JimGrange/comparing_correlations
-# https://www.statisticssolutions.com/comparing-correlation-coefficients/#:~:text=Researchers%20recommend%20this%20comparison%20when,transformation%20to%20compare%20z%20scores.
-# https://search.r-project.org/CRAN/refmans/DescTools/html/FisherZ.html
-
-# compute Rho for each correlation
-cor_ntd <- cor(dat_state$case_incidence, dat_state$ntd_pi_state_3w,
-               use = "na.or.complete",
-               method = "spearman")
-
-cor_conc <- cor(dat_state$case_incidence, dat_state$mean_sars2_conc_state_3w,
-                use = "na.or.complete",
-                method = "spearman")
-
-# package
-library(DescTools)
-
-# Fisher z score for the correlations
-z1 <- FisherZ(cor_ntd)
-z2 <- FisherZ(cor_conc)
-
-# number of observations
-n1 <- 119
-n2 <- 119
-
-# compare z scores to get Fisher's Z
-(z1 - z2)/sqrt((1/(n1-3)) + (1/(n2-3)))
-
-# try replacing R with Rho
-
-
-# ntd plot
-pi_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = ntd_pi_state_3w,
-             y = case_incidence))+
-  geom_point(color = pal[6])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
+lag_case_plot <- ggplot(data = lag_case ,
+                        aes(x = lag, y = spearman_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = lag_case %>%
+               group_by(name) %>%
+               filter(spearman_cor == max(spearman_cor)),
+             size = 3
+  )+
+  geom_line()+
+  ylim(0,1)+
   theme_dth_1+
-  labs(
-    title = "S1 NTD region",
-    x = expression(paste( pi[ww])),
-    y = "Case incidence"
+  theme(legend.position = "bottom",
+        panel.grid.major.x = element_line(color = "gray80"),
+        panel.grid.minor.y = element_blank())+
+  scale_color_manual(values = c(
+    "ntd_pi_state_3w"=pal[6],
+    "ntd_h_state_3w"=pal[5],
+    "n_variants_no_thresh_3w_mean"=pal[1],
+    "mean_sars2_conc_state_3w"=pal[2]
+  ),
+  name = "",
+  labels = c(
+    "ntd_pi_state_3w"=expression("S1 NTD "~ pi[ww]),
+    "ntd_h_state_3w"=expression( "S1 NTD H"[ww]),
+    "n_variants_no_thresh_3w_mean"="Freyja Variant counts",
+    "mean_sars2_conc_state_3w"="Concentration"
   )
+  )+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "spearman correlation\ncoefficient",
+       title= "Case incidence ~ Wastewater measure for\nstatewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")+
+  guides(color=guide_legend(nrow=2,byrow=TRUE))
+lag_case_plot
 
-# shannon diversity correlation plot
-h_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = ntd_h_state_3w,
-             y = case_incidence))+
-  geom_point(color = pal[5])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
+# hosp
+
+lag_hosp <- lag_lead_function_hosp(dataframe = dat_state,
+                                   columns = c(# pi
+                                     "ntd_pi_state_3w",
+                                     # H
+                                     "ntd_h_state_3w",
+                                     # var count
+                                     "n_variants_no_thresh_3w_mean",
+                                     # conc
+                                     "mean_sars2_conc_state_3w"),
+                                   lags = seq(1:10))
+
+lag_hosp_plot <- ggplot(data = lag_hosp ,
+                        aes(x = lag, y = spearman_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = lag_hosp %>%
+               group_by(name) %>%
+               filter(spearman_cor == max(spearman_cor)),
+             size = 3
+  )+
+  geom_line()+
+  ylim(0,1)+
   theme_dth_1+
-  labs(
-    title = "S1 NTD region",
-    x = expression(paste( "H"[ww], sep = "")),
-    y = "Case incidence"
+  theme(legend.position = "bottom",
+        panel.grid.major.x = element_line(color = "gray80"),
+        panel.grid.minor.y = element_blank())+
+  scale_color_manual(values = c(
+    "ntd_pi_state_3w"=pal[6],
+    "ntd_h_state_3w"=pal[5],
+    "n_variants_no_thresh_3w_mean"=pal[1],
+    "mean_sars2_conc_state_3w"=pal[2]
+  ),
+  name = "",
+  labels = c(
+    "ntd_pi_state_3w"=expression("S1 NTD "~ pi[ww]),
+    "ntd_h_state_3w"=expression( "S1 NTD H"[ww]),
+    "n_variants_no_thresh_3w_mean"="Freyja Variant counts",
+    "mean_sars2_conc_state_3w"="Concentration"
   )
+  )+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "spearman correlation\ncoefficient",
+       title= "Hospitalization incidence ~ Wastewater measure for\nstatewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
 
-# freyja variant count
-var_count_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = n_variants_no_thresh_3w_mean,
-             y = case_incidence))+
-  geom_point(color = pal[1])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "Freyja variant count",
-    x = "Variant count",
-    y = "Case incidence"
-  )
 
-# concentration
-conc_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = mean_sars2_conc_state_3w,
-             y = case_incidence))+
-  geom_point(color = pal[2])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "Concentration",
-    x = expression(paste("Conc, copies/", "m","L", sep = "")),
-    y = "Case incidence"
-  )
+# extract legend function
+mylegend <- g_legend(lag_case_plot)
 
-# title
-title <- ggdraw() + draw_label("Correlation with case incidence per 100,000", 
-                               fontface='bold')
-
-# panel
-panel <-
-  plot_grid(
-    pi_cor_plot,
-    h_cor_plot,
-    var_count_cor_plot,
-    conc_cor_plot,
-    nrow = 2,
-    align = "v",
-    axis = "l",
-    labels = c("A", "B", "C", "D")
-  )
-
-# add title to panel
-case_panel <- plot_grid(title, panel, ncol=1, rel_heights=c(0.1, 1))
-
-# add hospitalization correlations as panels E through H
-
-# ntd plot
-pi_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = ntd_pi_state_3w,
-             y = hosp_incidence))+
-  geom_point(color = pal[6])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "S1 NTD region",
-    x = expression(paste( pi[ww])),
-    y = "Hospitalization incidence"
-  )
-
-# shannon diversity correlation plot
-h_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = ntd_h_state_3w,
-             y = hosp_incidence))+
-  geom_point(color = pal[5])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "S1 NTD region",
-    x = expression(paste( "H"[ww], sep = "")),
-    y = "Hospitalization incidence"
-  )
-
-# freyja variant count
-var_count_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = n_variants_no_thresh_3w_mean,
-             y = hosp_incidence))+
-  geom_point(color = pal[1])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "Freyja variant count",
-    x = "Variant count",
-    y = "Hospitalization incidence"
-  )
-
-# concentration
-conc_cor_plot <- 
-  ggplot(data = dat_state,
-         aes(x = mean_sars2_conc_state_3w,
-             y = hosp_incidence))+
-  geom_point(color = pal[2])+
-  stat_cor(method = "spearman",
-           cor.coef.name = "rho")+
-  theme_dth_1+
-  labs(
-    title = "Concentration",
-    x = expression(paste("Conc, copies/", "m","L", sep = "")),
-    y = "Hospitalization incidence"
-  )
-
-# title
-title <- ggdraw() + draw_label(
-  "Correlation with hospitalization incidence per 100,000", 
-  fontface='bold')
-
-# panel
-panel <-
-  plot_grid(
-    pi_cor_plot,
-    h_cor_plot,
-    var_count_cor_plot,
-    conc_cor_plot,
-    nrow = 2,
-    align = "v",
-    axis = "l",
-    labels = c("E", "F", "G", "H")
-  )
-
-# add title to panel
-hosp_panel <- plot_grid(title, panel, ncol=1, rel_heights=c(0.1, 1))
-
-# combine panels
-plot_grid(
-  case_panel,
-  hosp_panel,
-  nrow = 2
-)
 
 # save
-png("Figures/Figure 4.png",
+png("Figures/Figure 5.png",
     units = "in",
-    width = 8.5, height = 11,
+    width = 6.5, height = 10,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
 plot_grid(
-  case_panel,
-  hosp_panel,
-  nrow = 2
+  plot_grid(lag_case_plot+ theme(legend.position = "none"),
+            lag_hosp_plot + theme(legend.position = "none"),
+            labels = c("A", "B"), nrow = 2, ncol = 1),
+  plot_grid(NULL, mylegend, NULL, nrow = 1, rel_widths = c(1, 0.5, 1)),
+  nrow = 2,
+  rel_heights = c(5,1)
 )
-showtext_end()
 dev.off()
+
+

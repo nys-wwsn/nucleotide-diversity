@@ -87,8 +87,8 @@ h_time <- ggplot()+
                        ymd(date) <= "2024-02-01"),
             aes(x = center,
                 y = avg_h,
-                group = date),
-            color = "grey"
+                group = date,
+                color = "grey")
   )+
   geom_line(data = bird_pi %>%
               filter(ymd(date) >= "2023-11-01"&
@@ -96,8 +96,7 @@ h_time <- ggplot()+
               group_by(center) %>%
               mutate(mean_h = mean(avg_h, na.rm = TRUE)
               ),
-            aes(x = center, y = mean_h),
-            color = "black",
+            aes(x = center, y = mean_h, color = "black"),
             lwd = 1
   )+
   ylim(0,0.03)+
@@ -106,8 +105,15 @@ h_time <- ggplot()+
        y = expression("Mean H"[ww]))+
   theme(plot.margin=unit(c(0.9,1,-0.19,1), "cm"),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())+
-  scale_x_continuous(expand = c(0,0))
+        axis.ticks.x=element_blank(),
+        legend.position = "top")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_color_manual(values = c("black" = "black",
+                                "grey" = "grey"),
+                     labels = c(expression(paste("Mean H"[ww])),
+                                expression(paste("Sample H"[ww]))),
+                     name = "Values"
+                     )
 
 pi_time <- ggplot()+
   geom_line(data = bird_pi %>%
@@ -115,8 +121,8 @@ pi_time <- ggplot()+
                        ymd(date) <= "2024-02-01"),
             aes(x = center,
                 y = avg_pi,
-                group = date),
-            color = "grey"
+                group = date,
+                color = "grey")
   )+
   geom_line(data = bird_pi %>%
               filter(ymd(date) >= "2023-11-01"&
@@ -124,8 +130,8 @@ pi_time <- ggplot()+
               group_by(center) %>%
               mutate(mean_pi = mean(avg_pi, na.rm = TRUE)
               ),
-            aes(x = center, y = mean_pi),
-            color = "black",
+            aes(x = center, y = mean_pi,
+                color = "black"),
             lwd = 1
   )+
   ylim(0,0.015)+
@@ -134,8 +140,15 @@ pi_time <- ggplot()+
        y = expression(paste("Mean ",pi[ww])))+
   theme(plot.margin=unit(c(0.9,1,-0.19,1), "cm"),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())+
-  scale_x_continuous(expand = c(0,0))
+        axis.ticks.x=element_blank(),
+        legend.position = "top")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_color_manual(values = c("black" = "black",
+                                "grey" = "grey"),
+                     labels = c(expression(paste("Mean ",Pi[ww])),
+                                expression(paste("Sample ",Pi[ww]))),
+                     name = "Values"
+  )
 
 pi_heatmap <- ggplot()+
   geom_tile(data = bird_pi %>%

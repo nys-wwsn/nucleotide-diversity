@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-26
 
-# Supplemental Figure S10
+# Supplemental Figure S7
 
 # ---------------------------------------
 # Packages
@@ -47,61 +47,111 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# max and min weeks for the study
-min_week <- "2023-01-01"
-max_week <- "2025-04-20"
+# --------------------------------------------------------------------------
+# Figure S7 - selective sweep figure showin the virus takeover with the 5% 
+# threshold for lineages
+# --------------------------------------------------------------------------
 
-# mean depth per sample - data prior to July 2024
-depth_1 <- read.csv("data/other data/depth_stats_20250424.txt") %>%
-  tidyr::separate(
-    sample, into = c("date", "cdc_id"), sep = 8
-  ) %>%
-  mutate(date = lubridate::ymd(date),
-         mean_depth = mean) %>%
-  dplyr::select(date, cdc_id, mean_depth)
+# JN.1 was first detected in statewide wasteater samples October 29, 2023
+# JN.1 was no longer dominant after April 14, 2024
 
-# mean depth post july 2024
-depth_2 <- read.csv("data/other data/genomwide_depth_2025-07-02.csv") %>%
-  mutate(date = ymd(date)) %>%
-  dplyr::select(date, cdc_id, mean_depth) %>%
-  tidyr::separate(
-    cdc_id, into = c("cdc_id", "drop"), sep = 12
+dat_state$jn1 <- ifelse(
+  dat_state$week >= "2023-10-29" & dat_state$week <= "2024-04-14",
+  "JN.1", "Other Variants"
+)
+
+# correlation with freyja lineages
+freyja_cor_thresh <- 
+  ggplot(data = dat_state,
+         aes(x = n_lineages_5_3w_mean,
+             y = case_incidence)
+  )+
+  geom_point(color = "grey60", size = 3, alpha = 0.7,
+             show.legend = FALSE)+
+  geom_point(data = dat_state %>% filter(jn1 == "JN.1"),
+             aes(color = jn1), size =3, alpha = 1)+
+  stat_cor(method = "spearman"
+  )+
+  theme_dth_1+
+  labs(x = "Mean number of Freyja lineages",
+       y = "COVID-19 cases per 100k")+
+  scale_color_manual(values = c("JN.1" = "gold"),
+                     name = "",
+                     label = "JN.1 lineage dominant")+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())
+freyja_cor_thresh
+
+# time series plot
+var_plot_thresh <- 
+  ggplot()+
+  geom_bar(data = dat_state,
+           aes(x = week,
+               y = case_incidence,
+               fill = "grey60"),
+           position = "stack",
+           stat = "identity")+
+  geom_line(data = dat_state,
+            aes(x = week, y= n_lineages_5_3w_mean*15,
+                color = "darkblue"),
+            linewidth = 1
+  )+
+  theme_dth_1+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())+
+  labs(
+    x = "")+
+  scale_y_continuous(
+    "COVID-19 cases per 100k", 
+    sec.axis = sec_axis(~ ./ 15, name = "Lineage count")
+  )+
+  scale_fill_manual(values = c("grey60" = "grey60"),
+                    label = c("Cases"),
+                    name = "")+
+  scale_color_manual(values = c("darkblue" = "darkblue"),
+                     label = "Freyja lineages",
+                     name = "")+
+  
+  geom_vline(xintercept = as.Date("2023-10-29"),
+             color = "black",
+             linetype = "dashed")+
+  geom_vline(xintercept = as.Date("2024-04-14"),
+             color = "black",
+             linetype = "dashed")+
+  annotate("label",
+           label = "JN.1\nvariant surge",
+           x = as.Date("2024-01-31"),
+           y = 100,
+           fill = "gold",
+           alpha =0.5
   )
 
-# bind together, then merge to the dat_sewershed object
-depth <- bind_rows(depth_1, depth_2) %>%
-  group_by(cdc_id, week = floor_date(date, unit = "weeks", week_start = 7)) %>%
-  summarize(mean_depth = mean(mean_depth, na.rm =  TRUE)
-  ) %>%
-  ungroup() %>%
-  rename(facility_id = cdc_id)
+var_plot_thresh
 
-dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
-
-# ------------------------------------------
-# Figure S10 - depth correlation with pi
-# ------------------------------------------
-
-depth_cor <-
-  ggplot(data = dat_sewershed,
-         aes(x = mean_depth,
-             y = ntd_pi))+
-  geom_point(
-    alpha = 0.5,
-    color = "orange")+
-  stat_cor(method = "spearman")+
-  theme_dth_1+
-  labs(x = "Depth of sample",
-       y = expression(pi[ww]))
+# make it a panel
+plot_grid(
+  var_plot_thresh,
+  freyja_cor_thresh,
+  nrow = 1,
+  rel_widths = c(2,1),
+  align = 'h', axis = 'tb',
+  labels = c("A", "B")
+)
 
 # save
-png("Figures/Figure S10.png",
+png("Figures/Figure S7.png",
     units = "in",
-    width = 6, height = 6,
+    width = 13, height = 6,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-depth_cor
+plot_grid(
+  var_plot_thresh,
+  freyja_cor_thresh,
+  nrow = 1,
+  rel_widths = c(2,1.5),
+  align = 'h', axis = 'tb',
+  labels = c("A", "B")
+)
 showtext_end()
 dev.off()
-

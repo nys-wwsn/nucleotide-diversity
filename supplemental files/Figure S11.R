@@ -47,169 +47,87 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# max and min weeks for the study
-min_week <- "2023-01-01"
-max_week <- "2025-04-20"
+# --------------------------------------
+# Figure S8 freyja variant counts with 5 % threshold
+# --------------------------------------
 
-# mean depth per sample - data prior to July 2024
-depth_1 <- read.csv("data/other data/depth_stats_20250424.txt") %>%
-  tidyr::separate(
-    sample, into = c("date", "cdc_id"), sep = 8
-  ) %>%
-  mutate(date = lubridate::ymd(date),
-         mean_depth = mean) %>%
-  dplyr::select(date, cdc_id, mean_depth)
+# JN.1 was first detected in statewide wasteater samples October 29, 2023
+# JN.1 was no longer dominant after April 14, 2024
 
-# mean depth post july 2024
-depth_2 <- read.csv("data/other data/genomwide_depth_2025-07-02.csv") %>%
-  mutate(date = ymd(date)) %>%
-  dplyr::select(date, cdc_id, mean_depth) %>%
-  tidyr::separate(
-    cdc_id, into = c("cdc_id", "drop"), sep = 12
-  )
+dat_state$jn1 <- ifelse(
+  dat_state$week >= "2023-10-29" & dat_state$week <= "2024-04-14",
+  "JN.1", "Other Variants"
+)
 
-# bind together, then merge to the dat_sewershed object
-depth <- bind_rows(depth_1, depth_2) %>%
-  group_by(cdc_id, week = floor_date(date, unit = "weeks", week_start = 7)) %>%
-  summarize(mean_depth = mean(mean_depth, na.rm =  TRUE)
-  ) %>%
-  ungroup() %>%
-  rename(facility_id = cdc_id)
-
-dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
-
-# ------------------------------------
-# Figure S11 - random subsampling
-# ------------------------------------
-
-
-# Randomly subsample each sample to equal read depth and reassess correlation
-
-# relationship prior to subsample
-ggplot(data = dat_sewershed %>%
-         filter(region != "New York City"))+
-  geom_point(aes(x = week, y = ntd_pi, color = facility_id))+
+# correlation with freyja lineages
+freyja_cor_thresh <- 
+  ggplot(data = dat_state,
+         aes(x = n_variants_5_3w_mean,
+             y = case_incidence)
+  )+
+  geom_point(color = "grey60", size = 3, alpha = 0.7,
+             show.legend = FALSE)+
+  stat_cor(method = "spearman"
+  )+
   theme_dth_1+
-  theme(legend.position = "none")+
-  geom_smooth(aes(x = week, y = ntd_pi),
-              method = "loess",
-              span = 0.1,
-              color = "darkblue",
-              lwd = 1.5)+
-  labs(x = "",
-       y = "S1 NTD Pi wastewater",
-       title = "All samples")+
-  scale_color_manual(values = MetBrewer::met.brewer(name = "Austria",
-                                                    n = 204))
+  labs(x = "Mean number of Freyja variants",
+       y = "COVID-19 cases per 100k")+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())
+freyja_cor_thresh
 
-
-# subsample for depth reading between 100 and 500
-set.seed(23)
-
-# Depth subsample - 3 week moving average for state values
-# statewide average - generate example for the figure legend
-
-cases <- dat_state %>%
-  dplyr::select(week, case_incidence)
-
-# sample 3
-sample_3_3w <- dat_sewershed  %>%
-  filter(depth >= 500 & depth <= 1000) %>%
-  sample_n(1000) %>%
-  arrange(week) %>%
-  group_by(week)%>%
-  summarise(
-    # statewide pi
-    genomewide_pi_state_3w = weighted.mean(x = genomewide_pi_ma3, 
-                                           w = population_served, 
-                                           na.rm = TRUE),
-    ntd_pi_state_3w = weighted.mean(x = ntd_pi_ma3, 
-                                    w = population_served, 
-                                    na.rm = TRUE)
-  )%>%
-  ungroup() %>%
-  left_join(cases, by = c("week"))
-
-# generate legend
-p_time <- 
-  ggplot(data = sample_3_3w)+
-  geom_bar(data = dat_state %>%
-             filter(group == "State"),
+# time series plot
+var_plot_thresh <- 
+  ggplot()+
+  geom_bar(data = dat_state,
            aes(x = week,
                y = case_incidence,
                fill = "grey60"),
-           position = "dodge",
+           position = "stack",
            stat = "identity")+
-  geom_line(aes(x = week,
-                y = ntd_pi_state_3w*10000,
+  geom_line(data = dat_state,
+            aes(x = week, y= n_variants_5_3w_mean*15,
                 color = "darkblue"),
-            lwd = 1.5)+
+            linewidth = 1
+  )+
   theme_dth_1+
-  scale_color_manual(values = c("darkblue"),
-                     labels = c("Pi"),
-                     name = "")+
-  scale_fill_manual(values = c("grey60"),
-                    labels = "Cases",
+  theme(legend.position = "bottom",
+        legend.background = element_blank())+
+  labs(
+    x = "")+
+  scale_y_continuous(
+    "COVID-19 cases per 100k", 
+    sec.axis = sec_axis(~ ./ 15, name = "Variant count")
+  )+
+  scale_fill_manual(values = c("grey60" = "grey60"),
+                    label = c("Cases"),
                     name = "")+
-  theme(legend.background = element_blank())+
-  theme(legend.position = "bottom")
+  scale_color_manual(values = c("darkblue" = "darkblue"),
+                     label = "Freyja lineages",
+                     name = "")
 
-# extract legend function
-g_legend<-function(a.gplot){
-  tmp <- ggplot_gtable(ggplot_build(a.gplot))
-  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-  legend <- tmp$grobs[[leg]]
-  return(legend)
-}
-
-# extract legend
-mylegend<-g_legend(p_time)
+var_plot_thresh
 
 
-
-sample_plots_1 <- time_cor_plot_function(
-  dataframe = dat_sewershed,
-  depth_start = 100,
-  depth_end = 400,
-  title = "Depth read of sample 100 to 400\n1000 randomly selected samples"
-)
-
-sample_plots_2 <- time_cor_plot_function(
-  dataframe = dat_sewershed,
-  depth_start = 400,
-  depth_end = 800,
-  title = "Depth read of sample 400 to 800\n1000 randomly selected samples")
-
-sample_plots_3 <- time_cor_plot_function(
-  dataframe = dat_sewershed,
-  depth_start = 800,
-  depth_end = 1500,
-  title = "Depth read of sample > 800\n1000 randomly selected samples")
-
-sample_plots_original <- time_cor_plot_function(
-  dataframe = dat_sewershed,
-  depth_start = 0,
-  depth_end = 45000,
-  title = "Depth read of sample (all reads)\n1000 randomly selected samples")
-
-ggarrange(ggarrange(sample_plots_original,
-                    sample_plots_1,
-                    sample_plots_2,
-                    sample_plots_3,
-                    nrow = 4),mylegend, nrow=2,heights=c(10, 1))
-
-
-png("Supplemental files/Figure S11.png",
+# save
+png("Figures/Figure S8.png",
     units = "in",
-    width = 8, height = 12,
+    width = 13, height = 6,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-
-ggarrange(ggarrange(sample_plots_original,
-                    sample_plots_1,
-                    sample_plots_2,
-                    sample_plots_3,
-                    nrow = 4),mylegend, nrow=2,heights=c(10, 1))
+plot_grid(
+  plot_grid(
+    var_plot_thresh+theme(legend.position = "none"),
+    freyja_cor_thresh,
+    nrow = 1,
+    rel_widths = c(2,1.5),
+    align = 'h', axis = 'bt',
+    labels = c("A", "B")
+  ), 
+  g_legend(var_plot_thresh),
+  nrow = 2,
+  rel_heights = c(2,0.5)
+)
 showtext_end()
 dev.off()
