@@ -7,9 +7,9 @@
 # Script author: Dustin T. Hill
 
 # Created 2025-04-25
-# Last updated 2025-09-26
+# Last updated 2025-09-25
 
-# Supplemental Figure S7
+# Supplemental Figures S6
 
 # ---------------------------------------
 # Packages
@@ -28,7 +28,11 @@ library(cowplot)
 library(flextable)
 library(performance)
 library(rcompanion)
-library(lmtest)
+library(lme4)
+library(lmerTest)
+library(nlme)
+library(MASS)
+library(glmmTMB)
 
 # --------------------------------------
 # PLOT THEMES
@@ -47,111 +51,277 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# --------------------------------------------------------------------------
-# Figure S7 - selective sweep figure showin the virus takeover with the 5% 
-# threshold for lineages
-# --------------------------------------------------------------------------
+# ----------------------------------------------------
+# Figure S6 - lag and lead for all genome regions
+# ----------------------------------------------------
 
-# JN.1 was first detected in statewide wasteater samples October 29, 2023
-# JN.1 was no longer dominant after April 14, 2024
+# correllation with hospital admissions
 
-dat_state$jn1 <- ifelse(
-  dat_state$week >= "2023-10-29" & dat_state$week <= "2024-04-14",
-  "JN.1", "Other Variants"
-)
+pi_lag <- lag_lead_function_hosp(dataframe = dat_state,
+                                 columns = c("genomewide_pi_state_3w",
+                                             "spike_pi_state_3w",
+                                             "orf_pi_state_3w",
+                                             "ntd_pi_state_3w",
+                                             "rbd_pi_state_3w",
+                                             "cov_mt_2_pi_state_3w"),
+                                 lags = seq(1:10))
 
-# correlation with freyja lineages
-freyja_cor_thresh <- 
-  ggplot(data = dat_state,
-         aes(x = n_lineages_5_3w_mean,
-             y = case_incidence)
+
+# plot
+lag_plot <- 
+  ggplot(data = pi_lag,
+         aes(x = lag, y = spearman_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = pi_lag %>%
+               group_by(name) %>%
+               filter(spearman_cor == max(spearman_cor)),
+             size = 3
   )+
-  geom_point(color = "grey60", size = 3, alpha = 0.7,
-             show.legend = FALSE)+
-  geom_point(data = dat_state %>% filter(jn1 == "JN.1"),
-             aes(color = jn1), size =3, alpha = 1)+
-  stat_cor(method = "spearman"
-  )+
+  geom_line()+
+  ylim(0,1)+
   theme_dth_1+
-  labs(x = "Mean number of Freyja lineages",
-       y = "COVID-19 cases per 100k")+
-  scale_color_manual(values = c("JN.1" = "gold"),
+  theme(legend.position = "bottom",
+        plot.subtitle = element_text(size = 12, hjust = 0.5),
+        plot.title = element_text(size = 12))+
+  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
+                                                    name = "Hiroshige"),
                      name = "",
-                     label = "JN.1 lineage dominant")+
-  theme(legend.position = "bottom",
-        legend.background = element_blank())
-freyja_cor_thresh
+                     labels = c("CoV-MT-2",
+                                "Genome-wide",
+                                "S1 NTD",
+                                "ORF NSPs 5 and 6",
+                                "S1 RBD",
+                                "Spike"))+
+  geom_vline(xintercept = 0)+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "Spearman correlation\ncoefficient",
+       title= expression(paste("Hospital incidence ~",Pi[ww])),
+       subtitle = "statewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
 
-# time series plot
-var_plot_thresh <- 
-  ggplot()+
-  geom_bar(data = dat_state,
-           aes(x = week,
-               y = case_incidence,
-               fill = "grey60"),
-           position = "stack",
-           stat = "identity")+
-  geom_line(data = dat_state,
-            aes(x = week, y= n_lineages_5_3w_mean*15,
-                color = "darkblue"),
-            linewidth = 1
+# repeat for shannon
+
+lag_h <- lag_lead_function_hosp(dataframe = dat_state,
+                                columns = c("genomewide_h_state_3w",
+                                            "spike_h_state_3w",
+                                            "orf_h_state_3w",
+                                            "ntd_h_state_3w",
+                                            "rbd_h_state_3w",
+                                            "cov_mt_2_h_state_3w"),
+                                lags = seq(1:10))
+
+lag_plot_2 <- ggplot(data = lag_h ,
+                     aes(x = lag, y = pearson_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = lag_h %>%
+               group_by(name) %>%
+               filter(pearson_cor == max(pearson_cor)),
+             size = 3
   )+
+  geom_line()+
+  ylim(0,1)+
+  theme_dth_1+
+  theme(legend.position = "bottom")+
+  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
+                                                    name = "Hiroshige"),
+                     name = "",
+                     labels = c("CoV-MT-2",
+                                "Genome-wide",
+                                "S1 NTD",
+                                "ORF NSPs 5 and 6",
+                                "S1 RBD",
+                                "Spike"))+
+  geom_vline(xintercept = 0)+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "Spearman correlation\ncoefficient",
+       title= "Hospital incidence ~ Shannon H (wastewater) for\nstatewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
+
+# add  cases
+pi_lag_2 <- lag_lead_function(dataframe = dat_state,
+                              columns = c("genomewide_pi_state_3w",
+                                          "spike_pi_state_3w",
+                                          "orf_pi_state_3w",
+                                          "ntd_pi_state_3w",
+                                          "rbd_pi_state_3w",
+                                          "cov_mt_2_pi_state_3w"),
+                              lags = seq(1:10))
+
+
+# plot
+lag_plot_case <- 
+  ggplot(data = pi_lag_2,
+         aes(x = lag, y = spearman_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = pi_lag_2 %>%
+               group_by(name) %>%
+               filter(spearman_cor == max(spearman_cor)),
+             size = 3
+  )+
+  geom_line()+
+  ylim(0,1)+
   theme_dth_1+
   theme(legend.position = "bottom",
-        legend.background = element_blank())+
-  labs(
-    x = "")+
-  scale_y_continuous(
-    "COVID-19 cases per 100k", 
-    sec.axis = sec_axis(~ ./ 15, name = "Lineage count")
+        plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 12, hjust = 0.5))+
+  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
+                                                    name = "Hiroshige"),
+                     name = "",
+                     labels = c("CoV-MT-2",
+                                "Genome-wide",
+                                "S1 NTD",
+                                "ORF NSPs 5 and 6",
+                                "S1 RBD",
+                                "Spike"))+
+  geom_vline(xintercept = 0)+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "Spearman correlation\ncoefficient",
+       title= expression(paste("Case incidence ~ ", Pi[ww])), 
+       subtitle = "statewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
+
+
+# repeat for shannon
+
+lag_h_2 <- lag_lead_function(dataframe = dat_state,
+                             columns = c("genomewide_h_state_3w",
+                                         "spike_h_state_3w",
+                                         "orf_h_state_3w",
+                                         "ntd_h_state_3w",
+                                         "rbd_h_state_3w",
+                                         "cov_mt_2_h_state_3w"),
+                             lags = seq(1:10))
+
+lag_plot_2_case <- ggplot(data = lag_h_2 ,
+                          aes(x = lag, y = pearson_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = lag_h_2 %>%
+               group_by(name) %>%
+               filter(pearson_cor == max(pearson_cor)),
+             size = 3
   )+
-  scale_fill_manual(values = c("grey60" = "grey60"),
-                    label = c("Cases"),
-                    name = "")+
-  scale_color_manual(values = c("darkblue" = "darkblue"),
-                     label = "Freyja lineages",
-                     name = "")+
-  
-  geom_vline(xintercept = as.Date("2023-10-29"),
-             color = "black",
-             linetype = "dashed")+
-  geom_vline(xintercept = as.Date("2024-04-14"),
-             color = "black",
-             linetype = "dashed")+
-  annotate("label",
-           label = "JN.1\nvariant surge",
-           x = as.Date("2024-01-31"),
-           y = 100,
-           fill = "gold",
-           alpha =0.5
-  )
+  geom_line()+
+  ylim(0,1)+
+  theme_dth_1+
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 12),
+        plot.subtitle = element_text(size = 12, hjust = 0.5))+
+  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
+                                                    name = "Hiroshige"),
+                     name = "",
+                     labels = c("CoV-MT-2",
+                                "Genome-wide",
+                                "S1 NTD",
+                                "ORF NSPs 5 and 6",
+                                "S1 RBD",
+                                "Spike"))+
+  geom_vline(xintercept = 0)+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "Spearman correlation\ncoefficient",
+       title= expression(paste("Case incidence ~ Shannon H"[ww])),
+       subtitle = "statewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
 
-var_plot_thresh
+# Add freyja variant counts and concentration data
 
-# make it a panel
-plot_grid(
-  var_plot_thresh,
-  freyja_cor_thresh,
-  nrow = 1,
-  rel_widths = c(2,1),
-  align = 'h', axis = 'tb',
-  labels = c("A", "B")
-)
+# case
+lag_freyja_case <- lag_lead_function(dataframe = dat_state,
+                                     columns = c("n_variants_no_thresh_3w_mean",
+                                                 "mean_sars2_conc_state_3w"),
+                                     lags = seq(1:10))
+
+lag_freyja_case <- ggplot(data = lag_freyja_case ,
+                          aes(x = lag, y = pearson_cor, color = name))+
+  geom_point(shape = 1, size = 2)+
+  geom_point(shape = 17,
+             data = lag_h_2 %>%
+               group_by(name) %>%
+               filter(pearson_cor == max(pearson_cor)),
+             size = 3
+  )+
+  geom_line()+
+  ylim(0,1)+
+  theme_dth_1+
+  theme(legend.position = "bottom",
+        plot.title = element_text(size =12),
+        plot.subtitle = element_text(size = 12, hjust = 0.5))+
+  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
+                                                    name = "Hiroshige"),
+                     name = "",
+                     labels = c("CoV-MT-2",
+                                "Genome-wide",
+                                "S1 NTD",
+                                "ORF NSPs 5 and 6",
+                                "S1 RBD",
+                                "Spike"))+
+  geom_vline(xintercept = 0)+
+  scale_x_continuous(breaks = seq(-5, 5, by = 1),
+                     limits = c(-5,5))+
+  labs(x = "Lead time (weeks)",
+       y = "Spearman correlation\ncoefficient",
+       title= expression(paste("Case incidence ~ Shannon H"[ww])),
+       subtitle = "statewide data")+
+  annotate("text",
+           x = -3, y = 0.09,
+           label = "signal lags incidence")+
+  annotate("text",
+           x = 3, y = 0.09,
+           label = "signal leads incidence")
+# hosp
+
+# extract legend function
+mylegend <- g_legend(lag_plot)
+
+
 
 # save
-png("Figures/Figure S7.png",
+png("Supplemental files/_Figure S7.png",
     units = "in",
-    width = 13, height = 6,
+    width = 10, height = 11,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-plot_grid(
-  var_plot_thresh,
-  freyja_cor_thresh,
-  nrow = 1,
-  rel_widths = c(2,1.5),
-  align = 'h', axis = 'tb',
-  labels = c("A", "B")
-)
-showtext_end()
+ggarrange(ggarrange(lag_plot_case+ theme(legend.position = "none"),
+                    lag_plot_2_case + theme(legend.position = "none"),
+                    nrow = 1,
+                    labels = c("A", "B")),
+          ggarrange(lag_plot+ theme(legend.position = "none"),
+                    lag_plot_2 + theme(legend.position = "none"),
+                    nrow = 1,
+                    labels = c("C", "D")),
+          mylegend, 
+          nrow=3,
+          heights=c(5,5, 1))
 dev.off()

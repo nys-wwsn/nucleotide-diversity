@@ -6,192 +6,215 @@
 
 # Script author: Dustin T. Hill
 
-# Created 2025-04-25
-# Last updated 2025-09-25
+# Created 2026-01-27
+# Last updated 2026-01-27
 
-# Supplemental Figure S4
+# Main analysis - Figure 3
 
-# ---------------------------------------
-# Packages
-# ---------------------------------------
+# --------------------------------------
+# PACKAGES
+# --------------------------------------
 
-library(dplyr)
-library(ggplot2)
-library(ggpubr)
+library(docstring)
 library(showtext)
-library(lme4)
-library(lmerTest)
-library(performance)
+library(ggplot2)
+library(sf)
+library(zoo)
+library(stringr)
 library(lubridate)
-library(gridExtra)
-library(cowplot)
 library(flextable)
+library(tidyr)
+library(dplyr)
+library(ggpubr)
+library(gridExtra)
+library(confintr)
+library(MetBrewer)
+library(broom)
+library(cowplot)
 library(performance)
 library(rcompanion)
-library(lme4)
-library(lmerTest)
-library(nlme)
-library(MASS)
-library(glmmTMB)
+library(grid)
 
-# --------------------------------------
-# PLOT THEMES
-# --------------------------------------
-source("seq diversity - plot themes.R")
-
-# ---------------------------------------
-# FUNCTIONS
-# ---------------------------------------
+# Load functions
 source("seq diversity - functions.R")
 
-# ---------------------------------------
-# Load data
-# ---------------------------------------
+# Load plot themes
+source("seq diversity - plot themes.R")
+
+# -----------------------------------------------------------------------------
+
+# --------------------------------------
+# DATA LOAD
+# --------------------------------------
 
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
 
-# -----------------------------------------------
-# Figure S4 - pi and genome regions time series
-# -----------------------------------------------
+# -----------------
+# Figure
+# -----------------
 
-# ------------------------------------------------
-# CORRELATION BETWEEN CLINICAL AND GENOME REGIONS
-# ------------------------------------------------
-
-# Statewide time series figure, all genome regions, panel for NYC
-dat_state_long <- dat_state %>%
-  pivot_longer(cols = c(
-    genomewide_pi_state_3w,
-    ntd_pi_state_3w,
-    cov_mt_2_pi_state_3w,
-    orf_pi_state_3w,
-    spike_pi_state_3w,
-    rbd_pi_state_3w
-  ))%>%
-  mutate(name_factor = factor(name,
-                              levels = c("genomewide_pi_state_3w",
-                                         "spike_pi_state_3w",
-                                         "orf_pi_state_3w",
-                                         "ntd_pi_state_3w",
-                                         "rbd_pi_state_3w",
-                                         "cov_mt_2_pi_state_3w"),
-                              labels = c("Genome",
-                                         "Spike",
-                                         "ORF NSPs 5 and 6",
-                                         "S1 NTD",
-                                         "S1 RBD",
-                                         "CoV-MT-2"))
-  )
-
-pal <- met.brewer(name = "Troy", n = 8)
-pal
-
-time_series_1 <- 
-  ggplot(data = dat_state_long) +
-  geom_bar(aes(x = week, y = case_incidence,
-               fill = "grey60"),
-           position = "dodge", stat = "identity")+
-  geom_line(aes(x = week, y = value * 10000,
-                color = name),
-            lwd= 1.15)+
-  facet_wrap(~name_factor, nrow = 6)+
-  theme_dth_1+
-  theme(legend.position = "none",
-        legend.background = element_rect(color = "white"),
-        axis.text.x = element_text(angle = 90, vjust = 0)
-  )+
-  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
-                                                    name = "Austria"),
-                     name = "",
-                     labels = c("CoV-MT-2",
-                                "Genome-wide",
-                                "S1 NTD",
-                                "ORF NSPs 5 and 6",
-                                "S1 RBD",
-                                "Spike"))+
-  scale_x_date(date_labels = "%b %y",
-               date_breaks = "1 month",
-               limits = c(ymd("2023-01-01"),
-                          ymd("2025-04-20"))
-  )+
-  scale_fill_manual(values = c("grey60" = "grey60"),
-                    labels = c("Cases\nper 100k"),
-                    name = ""
-  )+
-  labs(x = "",
-       title = "Genome region Pi values")+
-  scale_y_continuous(
-    "COVID-19 cases per 100k", 
-    sec.axis = sec_axis(~ ./ 10000, name = expression("Pi"[ww]))
-  )
-
-time_series_1
-
-# figure with correlations by genome region
-cor_plot <- dat_state %>%
-  pivot_longer(cols = c("genomewide_pi_state_3w",
-                        "spike_pi_state_3w",
-                        "orf_pi_state_3w",
-                        "ntd_pi_state_3w",
-                        "rbd_pi_state_3w",
-                        "cov_mt_2_pi_state_3w")
-  ) %>%
-  mutate(name_factor = factor(name,
-                              levels = c("genomewide_pi_state_3w",
-                                         "spike_pi_state_3w",
-                                         "orf_pi_state_3w",
-                                         "ntd_pi_state_3w",
-                                         "rbd_pi_state_3w",
-                                         "cov_mt_2_pi_state_3w"),
-                              labels = c("Genome",
-                                         "Spike",
-                                         "ORF NSPs 5 and 6",
-                                         "S1 NTD",
-                                         "S1 RBD",
-                                         "CoV-MT-2"))
-  ) %>%
-  ggplot()+
-  geom_point(aes(x = value, y = case_incidence, color = name))+
-  facet_wrap(~name_factor, nrow = 6)+
-  stat_cor(aes(x = value, y = case_incidence),
-           method = "spearman",
-           size = 4)+
-  scale_color_manual(values = MetBrewer::met.brewer(n = 6,
-                                                    name = "Austria"),
-                     name = "",
-                     labels = c("CoV-MT-2",
-                                "Genome-wide",
-                                "S1 NTD",
-                                "ORF NSPs 5 and 6",
-                                "S1 RBD",
-                                "Spike"))+
-  theme_dth_1 +
-  theme(legend.position = "none")+
-  labs(title = "Spearman correlation:\nPi ~ case incidence",
-       x = "Pi",
-       y = "")
-
-cor_plot
+# regional boxplot
+region_boxplot <- spatial_boxplot_function(dataframe = dat_region,
+                                           aggregation_name = "region",
+                                           outcome_var = "case_incidence",
+                                           aggregation_label = "Regional",
+                                           pi_name = "ntd_pi_region_3w",
+                                           h_name = "ntd_h_region_3w",
+                                           conc_name = "mean_sars2_conc_region_3w",
+                                           freyja_name = "n_variants_no_thresh_3w_mean")
+region_boxplot
 
 
-cowplot::plot_grid(time_series_1, cor_plot, nrow = 1,
-                   rel_widths = c(2,1),
-                   align = 'h', axis = 'tb')
+# county
+county_boxplot <- spatial_boxplot_function(dataframe = dat_county,
+                                           aggregation_name = "county",
+                                           outcome_var = "case_incidence",
+                                           aggregation_label = "County",
+                                           pi_name = "ntd_pi_county_3w",
+                                           h_name = "ntd_h_county_3w",
+                                           conc_name = "mean_sars2_conc_county_3w",
+                                           freyja_name = "n_variants_no_thresh_3w_mean")
+county_boxplot
 
-# combined plot for pi
+# sewershed
+county_cases <- dat_county %>%
+  select(county, case_incidence, hosp_incidence, week) %>%
+  distinct()
+dat_sewershed <- left_join(dat_sewershed,
+                           county_cases,
+                           by = c("county", "week"))
+
+sewershed_boxplot <- spatial_boxplot_function(
+  dataframe = dat_sewershed,
+  aggregation_name = "facility_id",
+  outcome_var = "case_incidence",
+  aggregation_label = "Sewershed",
+  pi_name = "ntd_pi_ma3",
+  h_name = "ntd_h_ma3",
+  conc_name = "mean_sars2_conc_ma3",
+  freyja_name = "n_variants_no_thresh_3w"
+)
+
+sewershed_boxplot
+
+# get legend
+legend <- g_legend(sewershed_boxplot)
+
+case_row <- plot_grid(
+  sewershed_boxplot + theme(legend.position = "none"),
+  county_boxplot+theme(legend.position = "none"),
+  region_boxplot+theme(legend.position = "none"),
+  labels = c("A", "B", "C"),
+  rel_widths = c(1, 1,1),
+  nrow = 1
+)
+
+# title
+title <- ggdraw() + draw_label("Correlation with case incidence", 
+                               fontface='bold')
+
+case_row <- plot_grid(
+  title,
+  case_row,
+  nrow = 2,
+  rel_heights = c(0.1,1)
+)
+
+# hosp row
+
+# regional boxplot
+region_boxplot <- spatial_boxplot_function(dataframe = dat_region,
+                                           aggregation_name = "region",
+                                           outcome_var = "hosp_incidence",
+                                           aggregation_label = "Regional",
+                                           pi_name = "ntd_pi_region_3w",
+                                           h_name = "ntd_h_region_3w",
+                                           conc_name = "mean_sars2_conc_region_3w",
+                                           freyja_name = "n_variants_no_thresh_3w_mean")
+region_boxplot
+
+
+# county
+county_boxplot <- spatial_boxplot_function(dataframe = dat_county,
+                                           aggregation_name = "county",
+                                           outcome_var = "hosp_incidence",
+                                           aggregation_label = "County",
+                                           pi_name = "ntd_pi_county_3w",
+                                           h_name = "ntd_h_county_3w",
+                                           conc_name = "mean_sars2_conc_county_3w",
+                                           freyja_name = "n_variants_no_thresh_3w_mean")
+county_boxplot
+
+# sewershed
+sewershed_boxplot <- spatial_boxplot_function(
+  dataframe = dat_sewershed,
+  aggregation_name = "facility_id",
+  outcome_var = "hosp_incidence",
+  aggregation_label = "Sewershed",
+  pi_name = "ntd_pi_ma3",
+  h_name = "ntd_h_ma3",
+  conc_name = "mean_sars2_conc_ma3",
+  freyja_name = "n_variants_no_thresh_3w"
+)
+
+sewershed_boxplot
+
+# get legend
+legend <- g_legend(sewershed_boxplot)
+
+# title
+title <- ggdraw() + draw_label("Correlation with hospital incidence", 
+                               fontface='bold')
+
+
+hosp_row <- plot_grid(
+  sewershed_boxplot + theme(legend.position = "none"),
+  county_boxplot+theme(legend.position = "none"),
+  region_boxplot+theme(legend.position = "none"),
+  labels = c("D", "E", "F"),
+  rel_widths = c(1, 1,1),
+  nrow = 1
+)
+
+hosp_row <- plot_grid(
+  title,
+  hosp_row,
+  rel_heights = c(0.1, 1),
+  nrow = 2
+)
+
+
+# legend for figure
+s_plot <- sewershed_boxplot+
+  theme(legend.position = "bottom")
+legend <- g_legend(s_plot)
+
+# panel
+
+plot_grid(
+  case_row,
+  hosp_row,
+  legend,
+  nrow = 3,
+  rel_heights = c(2,2,0.5)
+)
+
 # save
-png("Supplemental files/Figure S4.png",
+png("Figures/Figure 3.png",
     units = "in",
-    width = 8.5, height = 11,
+    width = 10, height = 8,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-cowplot::plot_grid(time_series_1, cor_plot, nrow = 1,
-                   rel_widths = c(2,1),
-                   align = 'h', axis = 'tb',
-                   labels = c("A", "B"))
+plot_grid(
+  case_row,
+  hosp_row,
+  legend,
+  nrow = 3,
+  rel_heights = c(2,2,0.5)
+)
 showtext_end()
 dev.off()
 
