@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-26
 
-# Supplemental Figure S11
+# Supplemental Figure S9
 
 # ---------------------------------------
 # Packages
@@ -47,87 +47,62 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# --------------------------------------
-# Figure S8 freyja variant counts with 5 % threshold
-# --------------------------------------
+# -----------------------
+# Figure S9 - depth and infections
+# -----------------------
 
-# JN.1 was first detected in statewide wasteater samples October 29, 2023
-# JN.1 was no longer dominant after April 14, 2024
-
-dat_state$jn1 <- ifelse(
-  dat_state$week >= "2023-10-29" & dat_state$week <= "2024-04-14",
-  "JN.1", "Other Variants"
-)
-
-# correlation with freyja lineages
-freyja_cor_thresh <- 
-  ggplot(data = dat_state,
-         aes(x = n_variants_5_3w_mean,
-             y = case_incidence)
-  )+
-  geom_point(color = "grey60", size = 3, alpha = 0.7,
-             show.legend = FALSE)+
-  stat_cor(method = "spearman"
-  )+
-  theme_dth_1+
-  labs(x = "Mean number of Freyja variants",
-       y = "COVID-19 cases per 100k")+
-  theme(legend.position = "bottom",
-        legend.background = element_blank())
-freyja_cor_thresh
-
-# time series plot
-var_plot_thresh <- 
-  ggplot()+
-  geom_bar(data = dat_state,
-           aes(x = week,
+p1 <- 
+  ggplot(data = dat_state)+
+  geom_bar(aes(x = week,
                y = case_incidence,
                fill = "grey60"),
-           position = "stack",
+           position = "dodge",
            stat = "identity")+
-  geom_line(data = dat_state,
-            aes(x = week, y= n_variants_5_3w_mean*15,
-                color = "darkblue"),
-            linewidth = 1
-  )+
+  geom_line(aes(x = week,
+                y = depth_state_3w/10,
+                color = "black"),
+            lwd = 1)+
   theme_dth_1+
-  theme(legend.position = "bottom",
-        legend.background = element_blank())+
-  labs(
-    x = "")+
   scale_y_continuous(
     "COVID-19 cases per 100k", 
-    sec.axis = sec_axis(~ ./ 15, name = "Variant count")
+    sec.axis = sec_axis(~ .*10, name = "Mean depth")
   )+
   scale_fill_manual(values = c("grey60" = "grey60"),
-                    label = c("Cases"),
-                    name = "")+
-  scale_color_manual(values = c("darkblue" = "darkblue"),
-                     label = "Freyja lineages",
-                     name = "")
+                    name = "",
+                    label = c("Cases"))+
+  scale_color_manual(values = c("black" = "black"),
+                     name = "",
+                     label = "Depth")+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())+
+  labs(x = "")
 
-var_plot_thresh
-
+# correlation plot
+p2 <- 
+  ggplot(data = dat_state,
+         aes(x = depth_state_3w,
+             y = case_incidence))+
+  geom_point(size = 2, color = "black")+
+  stat_cor()+
+  theme_dth_1+
+  labs(x = "Mean depth",
+       y = "COVID-19 cases per 100k")
 
 # save
-png("Figures/Figure S8.png",
+png("Figures/Figure S9.png",
     units = "in",
-    width = 13, height = 6,
+    width = 8.5, height = 6,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
 plot_grid(
-  plot_grid(
-    var_plot_thresh+theme(legend.position = "none"),
-    freyja_cor_thresh,
-    nrow = 1,
-    rel_widths = c(2,1.5),
-    align = 'h', axis = 'bt',
-    labels = c("A", "B")
-  ), 
-  g_legend(var_plot_thresh),
+  plot_grid(p1 + theme(legend.position = "none"), p2, nrow = 1,
+            align = "h",
+            axis = "bt",
+            rel_widths = c(2,1.5),
+            labels = c("A", "B")),
+  g_legend(p1),
   nrow = 2,
-  rel_heights = c(2,0.5)
-)
+  rel_heights = c(2,0.5))
 showtext_end()
 dev.off()

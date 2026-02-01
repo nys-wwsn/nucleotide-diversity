@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-25
 
-# Supplemental Figure S2
+# Supplemental Figure S3
 
 # ---------------------------------------
 # Packages
@@ -82,15 +82,16 @@ depth <- bind_rows(depth_1, depth_2) %>%
 
 dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
 
+
 # --------------------------------------------------------------------
-# Figure S2 - county level ntd concentration and case correlation
+# Figure S3 - region level ntd concentration and case correlation
 # --------------------------------------------------------------------
 
-# ntd pi over time by county
+# ntd pi over time by region
 ntd_pi_plot <-
-  ggplot(data = dat_county)+
+  ggplot(data = dat_region)+
   geom_point(aes(x = week,
-                 y= ntd_pi_county_3w),
+                 y= ntd_pi_region_3w),
              alpha = 0.6,
              color = "grey60")+
   theme_dth_1+
@@ -102,11 +103,11 @@ ntd_pi_plot <-
 
 ntd_pi_plot
 
-# ntd h over time by county
+# ntd h over time by region
 ntd_h_plot <-
-  ggplot(data = dat_county)+
+  ggplot(data = dat_region)+
   geom_point(aes(x = week,
-                 y= ntd_h_county_3w),
+                 y= ntd_h_region_3w),
              alpha = 0.6,
              color = "grey60")+
   theme_dth_1+
@@ -116,9 +117,9 @@ ntd_h_plot <-
     y = expression(paste("H"[ww]))
   )
 
-# variant count over time by county
+# variant count over time by region
 var_count_plot <- 
-  ggplot(data = dat_county)+
+  ggplot(data = dat_region)+
   geom_point(aes(x = week,
                  y= n_variants_no_thresh_3w_mean,
                  fill = "grey60"),
@@ -132,7 +133,7 @@ var_count_plot <-
   )+
   scale_fill_manual(values = c("grey60" = "grey60"),
                     name = "",
-                    labels = c("County weighted average"))+
+                    labels = c("Regional weighted average"))+
   theme(legend.position = "bottom",
         legend.background = element_blank())
 var_count_plot
@@ -167,7 +168,7 @@ plot_grid(ntd_pi_plot,
           rel_heights = c(3,3,3,3,1))
 
 # save
-png("Supplemental files/Figure S2.png",
+png("Supplemental files/Figure S3.png",
     units = "in",
     width = 8.5, height = 11,
     res = 600)

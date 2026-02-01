@@ -6,215 +6,183 @@
 
 # Script author: Dustin T. Hill
 
-# Created 2026-01-27
-# Last updated 2026-01-27
+# Created 2025-04-25
+# Last updated 2025-09-25
 
-# Main analysis - Figure 3
+# Supplemental Figure S2
 
-# --------------------------------------
-# PACKAGES
-# --------------------------------------
+# ---------------------------------------
+# Packages
+# ---------------------------------------
 
-library(docstring)
-library(showtext)
-library(ggplot2)
-library(sf)
-library(zoo)
-library(stringr)
-library(lubridate)
-library(flextable)
-library(tidyr)
 library(dplyr)
+library(ggplot2)
 library(ggpubr)
+library(showtext)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(lubridate)
 library(gridExtra)
-library(confintr)
-library(MetBrewer)
-library(broom)
 library(cowplot)
+library(flextable)
 library(performance)
 library(rcompanion)
-library(grid)
+library(lme4)
+library(lmerTest)
+library(nlme)
+library(MASS)
+library(glmmTMB)
 
-# Load functions
-source("seq diversity - functions.R")
-
-# Load plot themes
+# --------------------------------------
+# PLOT THEMES
+# --------------------------------------
 source("seq diversity - plot themes.R")
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------
+# FUNCTIONS
+# ---------------------------------------
+source("seq diversity - functions.R")
 
-# --------------------------------------
-# DATA LOAD
-# --------------------------------------
+# ---------------------------------------
+# Load data
+# ---------------------------------------
 
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
+# max and min weeks for the study
+min_week <- "2023-01-01"
+max_week <- "2025-04-20"
 
-# -----------------
-# Figure
-# -----------------
+# mean depth per sample - data prior to July 2024
+depth_1 <- read.csv("data/other data/depth_stats_20250424.txt") %>%
+  tidyr::separate(
+    sample, into = c("date", "cdc_id"), sep = 8
+  ) %>%
+  mutate(date = lubridate::ymd(date),
+         mean_depth = mean) %>%
+  select(date, cdc_id, mean_depth)
 
-# regional boxplot
-region_boxplot <- spatial_boxplot_function(dataframe = dat_region,
-                                           aggregation_name = "region",
-                                           outcome_var = "case_incidence",
-                                           aggregation_label = "Regional",
-                                           pi_name = "ntd_pi_region_3w",
-                                           h_name = "ntd_h_region_3w",
-                                           conc_name = "mean_sars2_conc_region_3w",
-                                           freyja_name = "n_variants_no_thresh_3w_mean")
-region_boxplot
+# mean depth post july 2024
+depth_2 <- read.csv("data/other data/genomwide_depth_2025-07-02.csv") %>%
+  mutate(date = ymd(date)) %>%
+  select(date, cdc_id, mean_depth) %>%
+  tidyr::separate(
+    cdc_id, into = c("cdc_id", "drop"), sep = 12
+  )
 
+# bind together, then merge to the dat_sewershed object
+depth <- bind_rows(depth_1, depth_2) %>%
+  group_by(cdc_id, week = floor_date(date, unit = "weeks", week_start = 7)) %>%
+  summarize(mean_depth = mean(mean_depth, na.rm =  TRUE)
+  ) %>%
+  ungroup() %>%
+  rename(facility_id = cdc_id)
 
-# county
-county_boxplot <- spatial_boxplot_function(dataframe = dat_county,
-                                           aggregation_name = "county",
-                                           outcome_var = "case_incidence",
-                                           aggregation_label = "County",
-                                           pi_name = "ntd_pi_county_3w",
-                                           h_name = "ntd_h_county_3w",
-                                           conc_name = "mean_sars2_conc_county_3w",
-                                           freyja_name = "n_variants_no_thresh_3w_mean")
-county_boxplot
+dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
 
-# sewershed
-county_cases <- dat_county %>%
-  select(county, case_incidence, hosp_incidence, week) %>%
-  distinct()
-dat_sewershed <- left_join(dat_sewershed,
-                           county_cases,
-                           by = c("county", "week"))
+# --------------------------------------------------------------------
+# Figure S2 - county level ntd concentration and case correlation
+# --------------------------------------------------------------------
 
-sewershed_boxplot <- spatial_boxplot_function(
-  dataframe = dat_sewershed,
-  aggregation_name = "facility_id",
-  outcome_var = "case_incidence",
-  aggregation_label = "Sewershed",
-  pi_name = "ntd_pi_ma3",
-  h_name = "ntd_h_ma3",
-  conc_name = "mean_sars2_conc_ma3",
-  freyja_name = "n_variants_no_thresh_3w"
-)
+# ntd pi over time by county
+ntd_pi_plot <-
+  ggplot(data = dat_county)+
+  geom_point(aes(x = week,
+                 y= ntd_pi_county_3w),
+             alpha = 0.6,
+             color = "grey60")+
+  theme_dth_1+
+  labs(
+    title = expression(paste( pi[ww])),
+    x = "",
+    y = expression(paste( pi[ww]))
+  )
 
-sewershed_boxplot
+ntd_pi_plot
 
-# get legend
-legend <- g_legend(sewershed_boxplot)
+# ntd h over time by county
+ntd_h_plot <-
+  ggplot(data = dat_county)+
+  geom_point(aes(x = week,
+                 y= ntd_h_county_3w),
+             alpha = 0.6,
+             color = "grey60")+
+  theme_dth_1+
+  labs(
+    title = expression(paste("H"[ww])),
+    x = "",
+    y = expression(paste("H"[ww]))
+  )
 
-case_row <- plot_grid(
-  sewershed_boxplot + theme(legend.position = "none"),
-  county_boxplot+theme(legend.position = "none"),
-  region_boxplot+theme(legend.position = "none"),
-  labels = c("A", "B", "C"),
-  rel_widths = c(1, 1,1),
-  nrow = 1
-)
+# variant count over time by county
+var_count_plot <- 
+  ggplot(data = dat_county)+
+  geom_point(aes(x = week,
+                 y= n_variants_no_thresh_3w_mean,
+                 fill = "grey60"),
+             alpha = 0.6,
+             color = "grey60")+
+  theme_dth_1+
+  labs(
+    title = "Freyja variant counts",
+    x = "",
+    y = "Variant counts"
+  )+
+  scale_fill_manual(values = c("grey60" = "grey60"),
+                    name = "",
+                    labels = c("County weighted average"))+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())
+var_count_plot
 
-# title
-title <- ggdraw() + draw_label("Correlation with case incidence", 
-                               fontface='bold')
-
-case_row <- plot_grid(
-  title,
-  case_row,
-  nrow = 2,
-  rel_heights = c(0.1,1)
-)
-
-# hosp row
-
-# regional boxplot
-region_boxplot <- spatial_boxplot_function(dataframe = dat_region,
-                                           aggregation_name = "region",
-                                           outcome_var = "hosp_incidence",
-                                           aggregation_label = "Regional",
-                                           pi_name = "ntd_pi_region_3w",
-                                           h_name = "ntd_h_region_3w",
-                                           conc_name = "mean_sars2_conc_region_3w",
-                                           freyja_name = "n_variants_no_thresh_3w_mean")
-region_boxplot
-
-
-# county
-county_boxplot <- spatial_boxplot_function(dataframe = dat_county,
-                                           aggregation_name = "county",
-                                           outcome_var = "hosp_incidence",
-                                           aggregation_label = "County",
-                                           pi_name = "ntd_pi_county_3w",
-                                           h_name = "ntd_h_county_3w",
-                                           conc_name = "mean_sars2_conc_county_3w",
-                                           freyja_name = "n_variants_no_thresh_3w_mean")
-county_boxplot
-
-# sewershed
-sewershed_boxplot <- spatial_boxplot_function(
-  dataframe = dat_sewershed,
-  aggregation_name = "facility_id",
-  outcome_var = "hosp_incidence",
-  aggregation_label = "Sewershed",
-  pi_name = "ntd_pi_ma3",
-  h_name = "ntd_h_ma3",
-  conc_name = "mean_sars2_conc_ma3",
-  freyja_name = "n_variants_no_thresh_3w"
-)
-
-sewershed_boxplot
-
-# get legend
-legend <- g_legend(sewershed_boxplot)
-
-# title
-title <- ggdraw() + draw_label("Correlation with hospital incidence", 
-                               fontface='bold')
+# case incidence over time
+case_plot <- 
+  ggplot(data = dat_state)+
+  geom_bar(aes(x = week,
+               y = case_incidence),
+           position = "dodge",
+           stat = "identity")+
+  theme_dth_1+
+  labs(
+    title = "Case incidence (per 100,000)",
+    x = "",
+    y = "Cases"
+  )
+mylegend <- g_legend(var_count_plot)
 
 
-hosp_row <- plot_grid(
-  sewershed_boxplot + theme(legend.position = "none"),
-  county_boxplot+theme(legend.position = "none"),
-  region_boxplot+theme(legend.position = "none"),
-  labels = c("D", "E", "F"),
-  rel_widths = c(1, 1,1),
-  nrow = 1
-)
-
-hosp_row <- plot_grid(
-  title,
-  hosp_row,
-  rel_heights = c(0.1, 1),
-  nrow = 2
-)
-
-
-# legend for figure
-s_plot <- sewershed_boxplot+
-  theme(legend.position = "bottom")
-legend <- g_legend(s_plot)
-
-# panel
-
-plot_grid(
-  case_row,
-  hosp_row,
-  legend,
-  nrow = 3,
-  rel_heights = c(2,2,0.5)
-)
+# put the plots in a panel
+plot_grid(ntd_pi_plot, 
+          ntd_h_plot, 
+          var_count_plot+ 
+            theme(legend.position = "none"),
+          case_plot, 
+          mylegend,
+          nrow = 5,
+          align = "v",
+          axis = "l",
+          labels = c("A", "B", "C", "D"),
+          rel_heights = c(3,3,3,3,1))
 
 # save
-png("Figures/Figure 3.png",
+png("Supplemental files/Figure S2.png",
     units = "in",
-    width = 10, height = 8,
+    width = 8.5, height = 11,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-plot_grid(
-  case_row,
-  hosp_row,
-  legend,
-  nrow = 3,
-  rel_heights = c(2,2,0.5)
-)
+plot_grid(ntd_pi_plot, 
+          ntd_h_plot, 
+          var_count_plot+ 
+            theme(legend.position = "none"),
+          case_plot, 
+          mylegend,
+          nrow = 5,
+          align = "v",
+          axis = "l",
+          labels = c("A", "B", "C", "D"),
+          rel_heights = c(3,3,3,3,1))
 showtext_end()
 dev.off()
-

@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-26
 
-# Supplemental Figure S10
+# Supplemental Figure S13
 
 # ---------------------------------------
 # Packages
@@ -78,30 +78,32 @@ depth <- bind_rows(depth_1, depth_2) %>%
 
 dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
 
-# ------------------------------------------
-# Figure S10 - depth correlation with pi
-# ------------------------------------------
-
-depth_cor <-
-  ggplot(data = dat_sewershed,
-         aes(x = mean_depth,
-             y = ntd_pi))+
-  geom_point(
-    alpha = 0.5,
-    color = "orange")+
-  stat_cor(method = "spearman")+
+# ---------------------------------------------
+# Figure S13
+# ---------------------------------------------
+# Depth from freyja variants (alteration detected and depth recorded)
+# compared to depth from the total sample
+depth_plot_7 <- 
+  ggplot(data = dat_sewershed ,
+         aes(x = depth,
+             y = mean_depth)
+  )+
+  geom_point(alpha = 0.5, color = "seagreen")+
+  stat_cor(method = "spearman",
+           digits = 4)+
   theme_dth_1+
-  labs(x = "Depth of sample",
-       y = expression(pi[ww]))
+  labs(x = "Depth - alterations only",
+       y = "Depth - complete sample")
+
+depth_plot_7
 
 # save
-png("Figures/Figure S10.png",
+png("Supplemental files/Figure S13.png",
     units = "in",
-    width = 6, height = 6,
+    width = 5, height = 5,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-depth_cor
+depth_plot_7
 showtext_end()
 dev.off()
-
