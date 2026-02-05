@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-26
 
-# Supplemental Figure S10
+# Supplemental Figure S9
 
 # ---------------------------------------
 # Packages
@@ -47,61 +47,62 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# max and min weeks for the study
-min_week <- "2023-01-01"
-max_week <- "2025-04-20"
+# -----------------------
+# Figure S9 - depth and infections
+# -----------------------
 
-# mean depth per sample - data prior to July 2024
-depth_1 <- read.csv("data/other data/depth_stats_20250424.txt") %>%
-  tidyr::separate(
-    sample, into = c("date", "cdc_id"), sep = 8
-  ) %>%
-  mutate(date = lubridate::ymd(date),
-         mean_depth = mean) %>%
-  dplyr::select(date, cdc_id, mean_depth)
-
-# mean depth post july 2024
-depth_2 <- read.csv("data/other data/genomwide_depth_2025-07-02.csv") %>%
-  mutate(date = ymd(date)) %>%
-  dplyr::select(date, cdc_id, mean_depth) %>%
-  tidyr::separate(
-    cdc_id, into = c("cdc_id", "drop"), sep = 12
-  )
-
-# bind together, then merge to the dat_sewershed object
-depth <- bind_rows(depth_1, depth_2) %>%
-  group_by(cdc_id, week = floor_date(date, unit = "weeks", week_start = 7)) %>%
-  summarize(mean_depth = mean(mean_depth, na.rm =  TRUE)
-  ) %>%
-  ungroup() %>%
-  rename(facility_id = cdc_id)
-
-dat_sewershed <- left_join(dat_sewershed, depth, by = c("facility_id", "week"))
-
-# ------------------------------------------
-# Figure S10 - depth correlation with pi
-# ------------------------------------------
-
-depth_cor <-
-  ggplot(data = dat_sewershed,
-         aes(x = mean_depth,
-             y = ntd_pi))+
-  geom_point(
-    alpha = 0.5,
-    color = "orange")+
-  stat_cor(method = "spearman")+
+p1 <- 
+  ggplot(data = dat_state)+
+  geom_bar(aes(x = week,
+               y = case_incidence,
+               fill = "grey60"),
+           position = "dodge",
+           stat = "identity")+
+  geom_line(aes(x = week,
+                y = depth_state_3w/10,
+                color = "black"),
+            lwd = 1)+
   theme_dth_1+
-  labs(x = "Depth of sample",
-       y = expression(pi[ww]))
+  scale_y_continuous(
+    "COVID-19 cases per 100k", 
+    sec.axis = sec_axis(~ .*10, name = "Mean depth")
+  )+
+  scale_fill_manual(values = c("grey60" = "grey60"),
+                    name = "",
+                    label = c("Cases"))+
+  scale_color_manual(values = c("black" = "black"),
+                     name = "",
+                     label = "Depth")+
+  theme(legend.position = "bottom",
+        legend.background = element_blank())+
+  labs(x = "")
+
+# correlation plot
+p2 <- 
+  ggplot(data = dat_state,
+         aes(x = depth_state_3w,
+             y = case_incidence))+
+  geom_point(size = 2, color = "black")+
+  stat_cor()+
+  theme_dth_1+
+  labs(x = "Mean depth",
+       y = "COVID-19 cases per 100k")
 
 # save
-png("Figures/Figure S10.png",
+png("Figures/Figure S9.png",
     units = "in",
-    width = 6, height = 6,
+    width = 8.5, height = 6,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)
-depth_cor
+plot_grid(
+  plot_grid(p1 + theme(legend.position = "none"), p2, nrow = 1,
+            align = "h",
+            axis = "bt",
+            rel_widths = c(2,1.5),
+            labels = c("A", "B")),
+  g_legend(p1),
+  nrow = 2,
+  rel_heights = c(2,0.5))
 showtext_end()
 dev.off()
-
