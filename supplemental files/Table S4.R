@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-25
 
-# Supplemental Table S4
+# Supplemental Table S3
 
 # ---------------------------------------
 # Packages
@@ -51,67 +51,60 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
-# --------------------------------------------------------------------------
-# Table S4 - county model
-# --------------------------------------------------------------------------
 
-# COUNTY MODEL - TIME SERIES CORRECTION
-# number of samples by county
-samples_county <- dat_sewershed %>%
-  group_by(county, week) %>%
+# ----------------------------------------------------------------
+# Table S3 - GLM results for variance explained by S1 NTD and 
+# cases/hospitalizations
+# ----------------------------------------------------------------
+
+# state model
+
+# samples per week
+samples_state <- dat_sewershed %>%
+  group_by(week) %>%
   summarize(seq_samples = sum(samples, na.rm = TRUE),
             conc_samples = sum(conc_samples, na.rm = TRUE)) %>%
   ungroup()
 
-dat_county <- left_join(dat_county, samples_county,
-                        by = c("county", "week"))
+dat_state <- left_join(dat_state, samples_state,
+                       by = c("week"))
 
-# glmmtbm
-# ar1 adjustment
-dat_county$date_Factor <- factor(dat_county$week,
-                                 levels = seq.Date(
-                                   from = min(as_date(dat_county$week)), 
-                                   to = max(as_date(dat_county$week)),
-                                   by = 1)
-)
-dat_county$date_Factor <- cut(dat_county$week, breaks = "week")
+# remove nas
+s <- dat_state %>%
+  filter(!is.na(case_incidence)) %>%
+  filter(!is.na(ntd_pi_state_3w)) %>%
+  filter(!is.na(mean_sars2_conc_state_3w)) %>%
+  filter(!is.na(depth_state_3w)) %>%
+  filter(!is.na(n_variants_no_thresh_3w_mean))
 
+# gls model
+model_time <- gls(case_incidence ~ 
+                    + scale(ntd_pi_state_3w)
+                  + scale(log(mean_sars2_conc_state_3w))
+                  + scale(depth_state_3w)
+                  + scale(seq_samples)
+                  + scale(conc_samples)
+                  + scale(mean_coverage)
+                  , data = s,
+                  correlation = corAR1(form = ~1|week))
 
-# gaussian with random effect only
-# negative binomial time series glmm
-model_county_nb_time <- glmmTMB(case_incidence ~ 
-                                  + scale(ntd_pi_county_3w)
-                                + scale(log(mean_sars2_conc_county_3w))
-                                + scale(depth_county_3w)
-                                + scale(seq_samples)
-                                + scale(conc_samples)
-                                + scale(mean_coverage)
-                                +ar1(date_Factor + 0|county),
-                                family = nbinom2()
-                                ,
-                                data = dat_county,
-                                control=glmmTMBControl(optimizer=optim, 
-                                                       optArgs=list(method="BFGS"))
-)
+summary(model_time)
+performance(model_time)
+performance::r2(model_time)
 
-summary(model_county_nb_time)
-AIC(model_county_nb_time)
-
+# save output in a table
 # table
-
-county_table <-  model_summary_function(
-  dataframe = dat_county,
+state_table <- model_summary_function(
+  dataframe = s,
   outcome = "case_incidence",
-  model = model_county_nb_time,
-  glmer_option = "glmmtmb"
+  model = model_time,
+  glmer_option = "gls"
 )%>%
-  mutate(group = "S1 NTD model") %>%
-  rename(p_value = `Pr(>|z|)`)
+  mutate(group = "Full model")
 
-#
 #  save table
 # edit estimate column
-county_table$variable<- c(
+state_table$variable<- c(
   "Intercept",
   "S1 NTD Pi",
   "SARS-CoV-2 concentration",
@@ -122,14 +115,79 @@ county_table$variable<- c(
   "n",
   "Efron R2",
   "AIC"
-) 
+)
 
 # round p value
-county_table$p_value <- round_2(as.numeric(county_table$p_value))
+state_table$`p-value` <- round_2(as.numeric(state_table$`p-value`))
+
+# ntd only
+# gls model
+model_ntd <- gls(case_incidence ~ 
+                   + scale(ntd_pi_state_3w)
+                 , data = s,
+                 correlation = corAR1(form = ~1|week))
+
+
+# save output in a table
+# table
+state_table_ntd <- model_summary_function(
+  dataframe = s,
+  outcome = "case_incidence",
+  model = model_ntd,
+  glmer_option = "gls"
+)%>%
+  mutate(group = "S1 NTD model")
+
+#  save table
+# edit estimate column
+state_table_ntd$variable<- c(
+  "Intercept",
+  "S1 NTD Pi",
+  "n",
+  "Efron R2",
+  "AIC"
+)
+
+# conc only
+# gls model
+model_conc <- gls(case_incidence ~ 
+                    + scale(log(mean_sars2_conc_state_3w))
+                  , data = s,
+                  correlation = corAR1(form = ~1|week))
+
+
+# save output in a table
+# table
+state_table_conc<- model_summary_function(
+  dataframe = s,
+  outcome = "case_incidence",
+  model = model_conc,
+  glmer_option = "gls"
+)%>%
+  mutate(group = "Concentration model")
+
+#  save table
+# edit estimate column
+state_table_conc$variable<- c(
+  "Intercept",
+  "SARS-CoV-2 concentration",
+  "n",
+  "Efron R2",
+  "AIC"
+)
+
+# make into one table
+state_table <- rbind(state_table, state_table_ntd,
+                     state_table_conc)
+state_table <- state_table %>%
+  select(group, everything())
+
+state_table$`p-value` <- round_2(state_table$`p-value`)
+# 
 
 # make it an ft table
-t <- table_as_flex_function(dataframe = county_table,
-                            title = "Tale: County generalized liner model results for S1 NTD")
+t <- table_as_flex_function(dataframe = state_table,
+                            title = "Tale: Statewide generalized liner model results for S1 NTD")
 
 t <- set_header_labels(t,
                        values = list(
@@ -145,7 +203,7 @@ t
 
 # save
 save_as_docx(FitFlextableToPage(t), 
-             path = paste("Figures/",
-                          "Table S4.docx",
+             path = paste("Supplemental files/",
+                          "Table S3.docx",
                           sep = "")
 )

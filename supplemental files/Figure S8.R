@@ -24,6 +24,12 @@ source("seq diversity - plot themes.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
+# county boundaries
+ny_counties <- st_read("data/Counties-Shoreline/Counties_Shoreline.shp") %>%
+  mutate(county = NAME)
+ny_counties$county[ny_counties$county == "St. Lawrence"] <- "St Lawrence"
+
+
 # sewershed locations from our study
 sewersheds <- dat_sewershed %>%
   select(wwtp_latitude, wwtp_longitude, facility_id, capacity_mgd) %>%
@@ -31,11 +37,6 @@ sewersheds <- dat_sewershed %>%
   st_as_sf(coords =  c("wwtp_longitude", "wwtp_latitude"),
            crs = "+proj=longlat +zone=18 +datum=WGS84") %>% 
   st_transform(st_crs(ny_counties))
-
-# county boundaries
-ny_counties <- st_read("data/Counties-Shoreline/Counties_Shoreline.shp") %>%
-  mutate(county = NAME)
-ny_counties$county[ny_counties$county == "St. Lawrence"] <- "St Lawrence"
 
 # create region boundaries object
 county_region <- read.csv("data/other data/County_Region.csv")
@@ -60,9 +61,13 @@ p1 <-
   geom_sf(data = sewersheds, aes(size = capacity_mgd),
           alpha = 0.5)+
   theme_dth_maps+
-  theme(legend.position = "bottom",
-        plot.subtitle = element_text(hjust = 0.5))+
-  labs(size = "WWTP maximum capacity (mgd)",
+  theme(# change legend position
+        legend.position = c(0.25, 0.20),
+        # change the orientation to horizontal
+        legend.direction = "vertical",
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.background = element_blank())+
+  labs(size = "WWTP capacity (mgd)",
        subtitle = "194 WWTP sampling sites",
        title = "Sewershed aggregation")
 
@@ -75,8 +80,13 @@ p2 <- ggplot()+
        title = "County aggregation",
        fill = "")+
   scale_fill_manual(values = MetBrewer::met.brewer(name = "Hiroshige", n = 2))+
-  theme(legend.position = "bottom",
-        plot.subtitle = element_text(hjust = 0.5))
+  theme(
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.background = element_blank(),
+        # change legend position
+        legend.position = c(0.4, 0.20),
+        # change the orientation to horizontal
+        legend.direction = "vertical")
 p2
 
 # regions
@@ -107,7 +117,7 @@ ggarrange(p1,p2,p3,p4, nrow = 2, ncol = 2,
 # save
 png("Supplemental files/Figure S8.png",
     units = "in",
-    width = 8, height = 6,
+    width = 9, height = 7.5,
     res = 600)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 600)

@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-26
 
-# Supplemental Table S6
+# Supplemental Table S5
 
 # ---------------------------------------
 # Packages
@@ -28,7 +28,11 @@ library(cowplot)
 library(flextable)
 library(performance)
 library(rcompanion)
-library(lmtest)
+library(lme4)
+library(lmerTest)
+library(nlme)
+library(MASS)
+library(glmmTMB)
 
 # --------------------------------------
 # PLOT THEMES
@@ -48,127 +52,96 @@ source("seq diversity - functions.R")
 load(file = "data/combined_data.Rdata")
 
 
-# -------------------------------------------------------------------------
-# Table S6 - Granger causality results
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Table S5 - region model
+# --------------------------------------------------------------------------
 
-# Granger causality tests for whether time series x predicts time series y
-# Both time series are adjusted to be stationary.
 
-# Remove NAs from the data and arrange the time series
-s <- dat_state %>%
-  filter(!is.na(case_incidence)) %>%
-  filter(!is.na(ntd_pi_state_3w)) %>%
-  filter(!is.na(mean_sars2_conc_state_3w)) %>%
-  filter(!is.na(depth_state_3w)) %>%
-  filter(!is.na(n_variants_no_thresh_3w_mean)) %>%
-  arrange(week) 
+# REGIONAL MODEL - TIME SERIES CORRECTION
+#  samples by region
+samples_region <- dat_sewershed %>%
+  group_by(region, week) %>%
+  summarize(seq_samples = sum(samples, na.rm = TRUE),
+            conc_samples = sum(conc_samples, na.rm = TRUE)) %>%
+  ungroup()
 
-# granger test for s1 ntd pi and cases
-g_ntd_pi_cases <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "case_incidence",
-    x = "ntd_pi_state_3w",
-    lag = 1,
-    group = "S1 NTD Pi",
-    outcome = "Case incidence"
-  )
+dat_region <- left_join(dat_region, samples_region,
+                        by = c("region", "week"))
 
-# granger test for s1 ntd h and cases
-g_ntd_h_cases <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "case_incidence",
-    x = "ntd_h_state_3w",
-    lag = 1,
-    group = "S1 NTD H",
-    outcome = "Case incidence"
-  )
+# make week a factor
+dat_region$date_Factor <- factor(dat_region$week,
+                                 levels = seq.Date(
+                                   from = min(as_date(dat_region$week)), 
+                                   to = max(as_date(dat_region$week)),
+                                   by = 1)
+)
+dat_region$date_Factor <- cut(dat_region$week, breaks = "week")
 
-# granger test for freyja variant count and  cases
-g_var_count_cases <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "case_incidence",
-    x = "n_variants_no_thresh_3w_mean",
-    lag = 1,
-    group = "Freyja variant count",
-    outcome = "Case incidence"
-  )
-
-# granger test for s1 ntd pi and hospitalizations
-g_ntd_pi_hosp <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "hosp_incidence",
-    x = "ntd_pi_state_3w",
-    lag = 1,
-    group = "S1 NTD Pi",
-    outcome = "Hospitalization incidence"
-  )
-
-# granger test for s1 ntd h and hospitalizations
-g_ntd_h_hosp <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "hosp_incidence",
-    x = "ntd_h_state_3w",
-    lag = 1,
-    group = "S1 NTD H",
-    outcome = "Hospitalization incidence"
-  )
-
-# granger test for freyja variant count and hospitalizations
-g_var_count_hosp <- 
-  granger_casuality_function(
-    dataframe = s,
-    y = "hosp_incidence",
-    x = "n_variants_no_thresh_3w_mean",
-    lag = 1,
-    group = "Freyja variant count",
-    outcome = "Hospitalization incidence"
-  )
-
-# combine into one dataframe
-granger_results <- bind_rows(
-  g_ntd_pi_cases,
-  g_ntd_h_cases,
-  g_var_count_cases,
-  g_ntd_pi_hosp,
-  g_ntd_h_hosp,
-  g_var_count_hosp
+# glmmtmb with negative binomial and time series correction
+model_region_nb_time <- glmmTMB(case_incidence ~ 
+                                  + scale(ntd_pi_region_3w)
+                                + scale(log(mean_sars2_conc_region_3w))
+                                + scale(depth_region_3w)
+                                + scale(seq_samples)
+                                + scale(conc_samples)
+                                + scale(mean_coverage)
+                                +ar1(date_Factor + 0|region),
+                                family = nbinom2()
+                                ,
+                                data = dat_region,
+                                control=glmmTMBControl(optimizer=optim, 
+                                                       optArgs=list(method="BFGS"))
 )
 
-# round results
-granger_results <- granger_results %>%
-  mutate_if(., is.numeric, round_signifi_function)
+summary(model_region_nb_time)
+AIC(model_region_nb_time)
 
-# label p values
-granger_results <- granger_results %>%
-  mutate(`P value` = case_when(
-    `P value` > 0.05 ~ as.character(`P value`),
-    `P value` < 0.05 & `P value` > 0.01~ paste(as.character(`P value`), "*", 
-                                               sep = ""),
-    `P value` < 0.01 & `P value` > 0.001 ~ paste(as.character(`P value`), "**", 
-                                                 sep = ""),
-    `P value` < 0.001 ~ paste("<0.001***")
-  ))
+region_table <- model_summary_function(
+  dataframe = dat_region,
+  outcome = "case_incidence",
+  glmer_option = "glmmtmb",
+  model = model_region_nb_time
+) %>%
+  mutate(group = "S1 NTD Pi") %>%
+  rename(p_value = `Pr(>|z|)`)
 
-# edit column names
-colnames(granger_results) <- c("Diversity measure (x)",
-                               "Outcome variable (y)",
-                               "Model",
-                               "F statistic",
-                               "P value")
+#  save table
+# edit estimate column
+region_table$variable<- c(
+  "Intercept",
+  "S1 NTD Pi",
+  "SARS-CoV-2 concentration",
+  "Mean sample depth of read",
+  "Number of samples sequenced",
+  "Number of samples collected",
+  "Mean genome coverage",
+  "n",
+  "Efron R2",
+  "AIC"
+) 
 
-# make it a flextable object
-granger_ft <- table_as_flex_function(granger_results,
-                                     title = "Table S6: Granger causality results")
+# round p value
+region_table$p_value <- round_2(as.numeric(region_table$p_value))
 
-granger_ft
+# make it an ft table
+t <- table_as_flex_function(dataframe = region_table,
+                            title = "Tale: Region generalized liner model results for S1 NTD")
+
+t <- set_header_labels(t,
+                       values = list(
+                         group = "Model",
+                         variable = "Variable/Metric",
+                         Est = "Estimate",
+                         `Std. Error` = "Standard Error (SE)",
+                         `t value2` = "t value",
+                         `Pr(>|t|)` = "P value"
+                       ))
+
+t
 
 # save
-save_as_docx(FitFlextableToPage(granger_ft), 
+save_as_docx(FitFlextableToPage(t), 
              path = paste("Figures/",
-                          "Table S6.docx",sep = ""))
+                          "Table S5.docx",
+                          sep = "")
+)

@@ -9,7 +9,7 @@
 # Created 2025-04-25
 # Last updated 2025-09-25
 
-# Supplemental Table S3
+# Supplemental Table S2
 
 # ---------------------------------------
 # Packages
@@ -42,7 +42,7 @@ source("seq diversity - plot themes.R")
 # ---------------------------------------
 # FUNCTIONS
 # ---------------------------------------
-source("seq diversity - functions.R")
+source("seq diversity - functions with pearson correlation.R")
 
 # ---------------------------------------
 # Load data
@@ -51,159 +51,121 @@ source("seq diversity - functions.R")
 # combined data files for each geography
 load(file = "data/combined_data.Rdata")
 
+# --------------------------------------
+# Table S2  spearman correlation values
+# --------------------------------------
 
-# ----------------------------------------------------------------
-# Table S3 - GLM results for variance explained by S1 NTD and 
-# cases/hospitalizations
-# ----------------------------------------------------------------
 
-# state model
-
-# samples per week
-samples_state <- dat_sewershed %>%
-  group_by(week) %>%
-  summarize(seq_samples = sum(samples, na.rm = TRUE),
-            conc_samples = sum(conc_samples, na.rm = TRUE)) %>%
-  ungroup()
-
-dat_state <- left_join(dat_state, samples_state,
-                       by = c("week"))
-
-# remove nas
-s <- dat_state %>%
-  filter(!is.na(case_incidence)) %>%
-  filter(!is.na(ntd_pi_state_3w)) %>%
-  filter(!is.na(mean_sars2_conc_state_3w)) %>%
-  filter(!is.na(depth_state_3w)) %>%
-  filter(!is.na(n_variants_no_thresh_3w_mean))
-
-# gls model
-model_time <- gls(case_incidence ~ 
-                    + scale(ntd_pi_state_3w)
-                  + scale(log(mean_sars2_conc_state_3w))
-                  + scale(depth_state_3w)
-                  + scale(seq_samples)
-                  + scale(conc_samples)
-                  + scale(mean_coverage)
-                  , data = s,
-                  correlation = corAR1(form = ~1|week))
-
-summary(model_time)
-performance(model_time)
-performance::r2(model_time)
-
-# save output in a table
-# table
-state_table <- model_summary_function(
-  dataframe = s,
-  outcome = "case_incidence",
-  model = model_time,
-  glmer_option = "gls"
-)%>%
-  mutate(group = "Full model")
-
-#  save table
-# edit estimate column
-state_table$variable<- c(
-  "Intercept",
-  "S1 NTD Pi",
-  "SARS-CoV-2 concentration",
-  "Mean sample depth of read",
-  "Number of samples sequenced",
-  "Number of samples collected",
-  "Mean genome coverage",
-  "n",
-  "Efron R2",
-  "AIC"
+# correlation for each genome region predictor for pi and H
+row_1 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "Genome-wide",
+  predictor_name = "genomewide_pi_state_3w",
+  predictor_group = "Pi"
 )
 
-# round p value
-state_table$`p-value` <- round_2(as.numeric(state_table$`p-value`))
-
-# ntd only
-# gls model
-model_ntd <- gls(case_incidence ~ 
-                   + scale(ntd_pi_state_3w)
-                 , data = s,
-                 correlation = corAR1(form = ~1|week))
-
-
-# save output in a table
-# table
-state_table_ntd <- model_summary_function(
-  dataframe = s,
-  outcome = "case_incidence",
-  model = model_ntd,
-  glmer_option = "gls"
-)%>%
-  mutate(group = "S1 NTD model")
-
-#  save table
-# edit estimate column
-state_table_ntd$variable<- c(
-  "Intercept",
-  "S1 NTD Pi",
-  "n",
-  "Efron R2",
-  "AIC"
+row_2 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "NSPs 5 and 6",
+  predictor_name = "orf_pi_state_3w",
+  predictor_group = "Pi"
 )
 
-# conc only
-# gls model
-model_conc <- gls(case_incidence ~ 
-                    + scale(log(mean_sars2_conc_state_3w))
-                  , data = s,
-                  correlation = corAR1(form = ~1|week))
-
-
-# save output in a table
-# table
-state_table_conc<- model_summary_function(
-  dataframe = s,
-  outcome = "case_incidence",
-  model = model_conc,
-  glmer_option = "gls"
-)%>%
-  mutate(group = "Concentration model")
-
-#  save table
-# edit estimate column
-state_table_conc$variable<- c(
-  "Intercept",
-  "SARS-CoV-2 concentration",
-  "n",
-  "Efron R2",
-  "AIC"
+row_3 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "2' O-Mtase",
+  predictor_name = "cov_mt_2_pi_state_3w",
+  predictor_group = "Pi"
 )
 
-# make into one table
-state_table <- rbind(state_table, state_table_ntd,
-                     state_table_conc)
-state_table <- state_table %>%
-  select(group, everything())
+row_4 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "Spike Protein",
+  predictor_name = "spike_pi_state_3w",
+  predictor_group = "Pi"
+)
 
-state_table$`p-value` <- round_2(state_table$`p-value`)
-# 
+row_5 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "S1 NTD",
+  predictor_name = "ntd_pi_state_3w",
+  predictor_group = "Pi"
+)
 
-# make it an ft table
-t <- table_as_flex_function(dataframe = state_table,
-                            title = "Tale: Statewide generalized liner model results for S1 NTD")
+row_6 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "S1 RBD",
+  predictor_name = "rbd_pi_state_3w",
+  predictor_group = "Pi"
+)
 
-t <- set_header_labels(t,
-                       values = list(
-                         group = "Model",
-                         variable = "Variable/Metric",
-                         Est = "Estimate",
-                         `Std. Error` = "Standard Error (SE)",
-                         `t value2` = "t value",
-                         `Pr(>|t|)` = "P value"
-                       ))
+# repeat for h values
+row_7 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "Genome-wide",
+  predictor_name = "genomewide_h_state_3w",
+  predictor_group = "H"
+)
 
-t
+row_8 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "NSPs 5 and 6",
+  predictor_name = "orf_h_state_3w",
+  predictor_group = "H"
+)
+
+row_9 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "2' O-Mtase",
+  predictor_name = "cov_mt_2_h_state_3w",
+  predictor_group = "H"
+)
+
+row_10 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "Spike Protein",
+  predictor_name = "spike_h_state_3w",
+  predictor_group = "H"
+)
+
+row_11 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "S1 NTD",
+  predictor_name = "ntd_h_state_3w",
+  predictor_group = "H"
+)
+
+row_12 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "S1 RBD",
+  predictor_name = "rbd_h_state_3w",
+  predictor_group = "H"
+)
+
+# correlation for variant count
+row_13 <- cor_ci_function(
+  dataframe = dat_state,
+  Region = "",
+  predictor_name = "n_variants_no_thresh_3w_mean",
+  predictor_group = "Freyja variant count"
+)
+
+# combine into one table
+cor_table <- bind_rows(
+  row_1, row_2, row_3, row_4, row_5, row_6,
+  row_7, row_8, row_9, row_10, row_11, row_12,
+  row_13
+)
+
+# make it a flextable and export
+# save table as flextable with rounded values
+cor_ft <- table_as_flex_function(
+  dataframe = cor_table,
+  title = "Table 3: Spearman correlations for diversity")
 
 # save
-save_as_docx(FitFlextableToPage(t), 
+save_as_docx(FitFlextableToPage(cor_ft), 
              path = paste("Supplemental files/",
-                          "Table S3.docx",
+                          "Table S3_.docx",
                           sep = "")
 )
